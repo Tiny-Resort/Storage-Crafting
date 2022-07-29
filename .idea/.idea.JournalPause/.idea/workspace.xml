@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="d2d8c802-0796-4653-8220-9d0302586851" name="Changes" comment="" />
+    <list default="true" id="d2d8c802-0796-4653-8220-9d0302586851" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/.idea.JournalPause/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.JournalPause/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/StorageCrafting.cs" beforeDir="false" afterPath="$PROJECT_DIR$/StorageCrafting.cs" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -44,7 +47,7 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1659033129650</updated>
-      <workItem from="1659033134848" duration="365000" />
+      <workItem from="1659033134848" duration="16435000" />
     </task>
     <servers />
   </component>
