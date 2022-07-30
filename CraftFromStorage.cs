@@ -224,7 +224,6 @@ namespace TR {
 
         public static void FindNearbyChests() {
             
-            CraftingManager.manage.specialCraftMenu
             Dbgl("Start of Find Nearby Chests");
             nearbyChests.Clear();
             var chests = Physics.OverlapSphere(currentTransform.position, radius.Value * 2, 15);
