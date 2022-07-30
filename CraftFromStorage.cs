@@ -45,8 +45,10 @@ namespace TR {
         public static Transform currentTransform;
         public static List<ChestPlaceable> knownChests = new List<ChestPlaceable>();
         public static List<Chest> nearbyChests = new List<Chest>();
+        public static bool usableTable;
+        public static int Sequence = 0;
 
-        public static bool isDebug = false;
+        public static bool isDebug = true;
 
         public static void Dbgl(string str = "") {
             if (isDebug) { StaticLogger.LogInfo(str); }
@@ -83,7 +85,7 @@ namespace TR {
             MethodInfo populateCraftList = AccessTools.Method(typeof(CraftingManager), "populateCraftList");
             MethodInfo canBeCrafted = AccessTools.Method(typeof(CraftingManager), "canBeCrafted");
             MethodInfo pickUp = AccessTools.Method(typeof(CharPickUp), "pickUp");
-            MethodInfo craftItem = AccessTools.Method(typeof(CharPickUp), "craftItem");
+            MethodInfo craftItem = AccessTools.Method(typeof(CraftingManager), "craftItem");
 
 
             MethodInfo fillRecipeIngredientsPatch = AccessTools.Method(typeof(CraftFromStorage), "fillRecipeIngredientsPatch");
@@ -105,24 +107,18 @@ namespace TR {
             #endregion
         }
 
-        public static bool craftItemPrefix(CraftingManager __instance, int currentlyCrafting, int ___currentVariation) {
+        [HarmonyPrefix]
+        public static void craftItemPrefix(CraftingManager __instance, int currentlyCrafting, int ___currentVariation) {
+            Dbgl($"Craft Item Start: {++Sequence}");
             ParseAllItems();
-            
-            var recipe = ___currentVariation == -1 || Inventory.inv.allItems[currentlyCrafting].craftable.altRecipes.Length == 0 ? 
-                             Inventory.inv.allItems[currentlyCrafting].craftable : Inventory.inv.allItems[currentlyCrafting].craftable.altRecipes[___currentVariation];
-
-            for (int i = 0; i < recipe.itemsInRecipe.Length; i++) {
-                int invItemId = Inventory.inv.getInvItemId(recipe.itemsInRecipe[i]);
-                int count = recipe.stackOfItemsInRecipe[i];
-                if (GetItemCount(invItemId) < count) {
-                    return false;
-                }
-            }
-            return true;
+            Dbgl($"Craft Item After RecipeForItem: {++Sequence}");
         }
 
         public static bool canBeCraftedPatch(CraftingManager __instance, int itemId, int ___currentVariation, ref bool __result) {
+            Dbgl($"Start canBeCraftedPatch: {++Sequence}");
+
             ParseAllItems();
+            Dbgl($"After ParseAllItems canBeCraftedPatch: {++Sequence}");
 
             bool result = true;
             int num = Inventory.inv.allItems[itemId].value * 2;
@@ -138,14 +134,20 @@ namespace TR {
                 int count = recipe.stackOfItemsInRecipe[i];
                 if (GetItemCount(invItemId) < count) {
                     result = false;
+                    Dbgl($"GetItemCount(invItemId) < count canBeCraftedPatch: {++Sequence}");
+
                     break;
                 }
             }
+            Dbgl($"Before return False canBeCraftedPatch: {++Sequence}");
+
             __result = result;
             return false;
         }
 
         public static bool takeItemsForRecipePatch(CraftingManager __instance, int currentlyCrafting, int ___currentVariation) {
+            Dbgl($"Start of takeItemsForRecipePatch: {++Sequence}");
+
             var recipe = ___currentVariation == -1 || Inventory.inv.allItems[currentlyCrafting].craftable.altRecipes.Length == 0 ? 
                                 Inventory.inv.allItems[currentlyCrafting].craftable : 
                                 Inventory.inv.allItems[currentlyCrafting].craftable.altRecipes[___currentVariation];
@@ -181,7 +183,11 @@ namespace TR {
                     if (amountToRemove <= 0) break;
                 }
             }
+            Dbgl($"Before ParseAllItems of takeItemsForRecipePatch: {++Sequence}");
+
             ParseAllItems();
+            Dbgl($"After ParseAllItems of takeItemsForRecipePatch: {++Sequence}");
+
             return false;
         }
         
@@ -192,21 +198,32 @@ namespace TR {
             if (Physics.Raycast(__instance.transform.position + __instance.transform.forward * 1.5f + Vector3.up * 3f, 
                                 Vector3.down, out var hitInfo2, 3.1f, __instance.pickUpLayerMask)) {
                 WorkTable componentInParent5 = hitInfo2.transform.GetComponentInParent<WorkTable>();
-                if ((bool) componentInParent5) { currentTransform = componentInParent5.transform; }
+                if ((bool)componentInParent5) {
+
+                    if (componentInParent5.typeOfCrafting == CraftingManager.CraftingMenuType.CookingTable ||
+                        componentInParent5.typeOfCrafting == CraftingManager.CraftingMenuType.CraftingTable) {
+                        currentTransform = componentInParent5.transform;
+                    } else Dbgl($"Type of Crafting Table: {componentInParent5.typeOfCrafting}");
+                    Dbgl($"Work Table Name: {componentInParent5.workTableName}");
+                    currentTransform = componentInParent5.transform;
+                }
             }
         }
 
         [HarmonyPrefix]
         public static void populateCraftListPrefix() {
+            Dbgl($"Before ParseAllItems of populateCraftListPrefix: {++Sequence}");
+
             ParseAllItems();
+            Dbgl($"After ParseAllItems of populateCraftListPrefix: {++Sequence}");
+
         }
         
         private static bool fillRecipeIngredientsPatch(CraftingManager __instance, int recipeNo, int variation) {
-
-            Dbgl("Start Fill Recipe");
+            Dbgl($"Start of fillRecipeIngredientsPatch: {++Sequence}");
             var recipe = variation == -1 || Inventory.inv.allItems[recipeNo].craftable.altRecipes.Length == 0 ? 
-                                Inventory.inv.allItems[recipeNo].craftable : 
-                                Inventory.inv.allItems[recipeNo].craftable.altRecipes[variation];
+                             Inventory.inv.allItems[recipeNo].craftable : 
+                             Inventory.inv.allItems[recipeNo].craftable.altRecipes[variation];
 
             for (int i = 0; i < recipe.itemsInRecipe.Length; i++) {
                 int invItemId = Inventory.inv.getInvItemId(recipe.itemsInRecipe[i]);
@@ -216,15 +233,13 @@ namespace TR {
                             .fillRecipeSlotWithAmounts(
                                 invItemId, GetItemCount(invItemId), Inventory.inv.allItems[recipeNo].craftable.stackOfItemsInRecipe[i]
                             );
-                Dbgl($"Running GetItemCount Method: {GetItemCount(invItemId)}");
+              //  Dbgl($"Running GetItemCount Method: {GetItemCount(invItemId)}");
             }
-            Dbgl("End Fill Recipe");
+            Dbgl($"End of fillRecipeIngredientsPatch: {++Sequence}");
             return false;
         }
 
         public static void FindNearbyChests() {
-            
-            Dbgl("Start of Find Nearby Chests");
             nearbyChests.Clear();
             var chests = Physics.OverlapSphere(currentTransform.position, radius.Value * 2, 15);
             int tempX, tempY;
@@ -242,20 +257,18 @@ namespace TR {
                 var layer = chestComponent.gameObject.layer;
                 var name = chestComponent.gameObject.name;
                 var tag = chestComponent.gameObject.tag;
-                Dbgl($"ID: {id} | Layer: {layer} | Name: {name} | Tag: {tag}");
+               // Dbgl($"ID: {id} | Layer: {layer} | Name: {name} | Tag: {tag}");
 
                 tempX = chestComponent.myXPos();
                 tempY = chestComponent.myYPos();
 
                 ContainerManager.manage.checkIfEmpty(tempX, tempY, null);
                 nearbyChests.Add(ContainerManager.manage.activeChests.First(i => i.xPos == tempX && i.yPos == tempY));
-                Dbgl($"Check List of NearbyChests: {nearbyChests}");
             }
-            Dbgl("End of Find Nearby Chests");
         }
+        
         // Fills a dictionary with info about the items in player inventory and nearby chests
         public static void ParseAllItems() {
-            Dbgl("Start parse Recipe");
             FindNearbyChests();
 
             // Clear the existing dictionary
@@ -270,7 +283,6 @@ namespace TR {
                 for (var i = 0; i < chest.itemIds.Length; i++)
                     AddItem(chest.itemIds[i], chest.itemStacks[i], i, chest);
             }
-            Dbgl("End Parse Recipe");
         }
 
         public static void AddItem(int itemID, int quantity, int slotID, Chest chest) {
@@ -283,14 +295,14 @@ namespace TR {
             source.chest = chest;
             source.slotID = slotID;
 
-            Dbgl($"Radius: {radius.Value}");
+           // Dbgl($"Radius: {radius.Value}");
             if (chest == null) { 
                 source.playerInventory = true; 
                 info.sources.Insert(0, source);
-                Dbgl($"Player Inventory -- Slot ID: {slotID} | ItemID: {itemID} | Quantity: {source.quantity}");
+              //  Dbgl($"Player Inventory -- Slot ID: {slotID} | ItemID: {itemID} | Quantity: {source.quantity}");
             } else {
                 info.sources.Add(source);
-                Dbgl($"Chest Inventory -- Slot ID: {slotID} | ItemID: {itemID} | Quantity: {source.quantity} | Chest X: {chest.xPos} | Chest Y: {chest.yPos}");
+              //  Dbgl($"Chest Inventory -- Slot ID: {slotID} | ItemID: {itemID} | Quantity: {source.quantity} | Chest X: {chest.xPos} | Chest Y: {chest.yPos}");
             }
             nearbyItems[itemID] = info;
 
