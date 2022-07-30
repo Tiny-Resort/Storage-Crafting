@@ -23,9 +23,13 @@ using I2.Loc;
 // TODO: GUI element to tell us how many are in chest vs inventory (next to recipe)
 // TODO: Work out kinks with being inside a house
 // TODO: Add config to do player inventory last
-// TODO: Re-check the storage contents when hitting craft
+// TODO: Re-check the storage contents when hitting craft --- DONE NEEDS TESTING
+    // TODO: FOLLOWUP - Update the item number when trying to click and maybe give warning. 
 // TODO: Take items out as soon as craft button is pressed
 // TODO: Fix multiplayer client not scanning for nearby chests
+// TODO: Crafting Table in the mines loses cursor(?) make check to test if underground
+// TODO: Fix the game breaking when crafting from Franklyn (and maybe Irwin) (CraftingShop and TrapperShop) -- Bug requries a chest within range
+// FIXED BUG: Items not showing up right away after you craft them. 
 namespace TR {
 
     [BepInPlugin(pluginGuid, pluginName, pluginVersion)]
@@ -79,23 +83,46 @@ namespace TR {
             MethodInfo populateCraftList = AccessTools.Method(typeof(CraftingManager), "populateCraftList");
             MethodInfo canBeCrafted = AccessTools.Method(typeof(CraftingManager), "canBeCrafted");
             MethodInfo pickUp = AccessTools.Method(typeof(CharPickUp), "pickUp");
+            MethodInfo craftItem = AccessTools.Method(typeof(CharPickUp), "craftItem");
+
 
             MethodInfo fillRecipeIngredientsPatch = AccessTools.Method(typeof(CraftFromStorage), "fillRecipeIngredientsPatch");
             MethodInfo takeItemsForRecipePatch = AccessTools.Method(typeof(CraftFromStorage), "takeItemsForRecipePatch");
             MethodInfo populateCraftListPrefix = AccessTools.Method(typeof(CraftFromStorage), "populateCraftListPrefix");
             MethodInfo canBeCraftedPatch = AccessTools.Method(typeof(CraftFromStorage), "canBeCraftedPatch");
             MethodInfo pickUpPatch = AccessTools.Method(typeof(CraftFromStorage), "pickUpPatch");
+            MethodInfo craftItemPrefix = AccessTools.Method(typeof(CraftFromStorage), "craftItemPrefix");
+
             
             harmony.Patch(fillRecipeIngredients, new HarmonyMethod(fillRecipeIngredientsPatch));
             harmony.Patch(takeItemsForRecipe, new HarmonyMethod(takeItemsForRecipePatch));
-            harmony.Patch(populateCraftList, new HarmonyMethod(populateCraftListPrefix));
+            //harmony.Patch(populateCraftList, new HarmonyMethod(populateCraftListPrefix));
             harmony.Patch(canBeCrafted, new HarmonyMethod(canBeCraftedPatch));
             harmony.Patch(pickUp, new HarmonyMethod(pickUpPatch));
+            harmony.Patch(craftItem, new HarmonyMethod(craftItemPrefix));
+
             
             #endregion
         }
-        
+
+        public static bool craftItemPrefix(CraftingManager __instance, int currentlyCrafting, int ___currentVariation) {
+            ParseAllItems();
+            
+            var recipe = ___currentVariation == -1 || Inventory.inv.allItems[currentlyCrafting].craftable.altRecipes.Length == 0 ? 
+                             Inventory.inv.allItems[currentlyCrafting].craftable : Inventory.inv.allItems[currentlyCrafting].craftable.altRecipes[___currentVariation];
+
+            for (int i = 0; i < recipe.itemsInRecipe.Length; i++) {
+                int invItemId = Inventory.inv.getInvItemId(recipe.itemsInRecipe[i]);
+                int count = recipe.stackOfItemsInRecipe[i];
+                if (GetItemCount(invItemId) < count) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
         public static bool canBeCraftedPatch(CraftingManager __instance, int itemId, int ___currentVariation, ref bool __result) {
+            ParseAllItems();
 
             bool result = true;
             int num = Inventory.inv.allItems[itemId].value * 2;
@@ -173,11 +200,34 @@ namespace TR {
         public static void populateCraftListPrefix() {
             ParseAllItems();
         }
+        
+        private static bool fillRecipeIngredientsPatch(CraftingManager __instance, int recipeNo, int variation) {
+
+            Dbgl("Start Fill Recipe");
+            var recipe = variation == -1 || Inventory.inv.allItems[recipeNo].craftable.altRecipes.Length == 0 ? 
+                                Inventory.inv.allItems[recipeNo].craftable : 
+                                Inventory.inv.allItems[recipeNo].craftable.altRecipes[variation];
+
+            for (int i = 0; i < recipe.itemsInRecipe.Length; i++) {
+                int invItemId = Inventory.inv.getInvItemId(recipe.itemsInRecipe[i]);
+                __instance.currentRecipeObjects.Add(UnityEngine.Object.Instantiate<GameObject>(__instance.recipeSlot, __instance.RecipeIngredients));
+                __instance.currentRecipeObjects[__instance.currentRecipeObjects.Count - 1]
+                            .GetComponent<FillRecipeSlot>()
+                            .fillRecipeSlotWithAmounts(
+                                invItemId, GetItemCount(invItemId), Inventory.inv.allItems[recipeNo].craftable.stackOfItemsInRecipe[i]
+                            );
+                Dbgl($"Running GetItemCount Method: {GetItemCount(invItemId)}");
+            }
+            Dbgl("End Fill Recipe");
+            return false;
+        }
 
         public static void FindNearbyChests() {
-
+            
+            CraftingManager.manage.specialCraftMenu
+            Dbgl("Start of Find Nearby Chests");
             nearbyChests.Clear();
-            var chests = Physics.OverlapSphere(currentTransform.position, radius.Value*2, 15);
+            var chests = Physics.OverlapSphere(currentTransform.position, radius.Value * 2, 15);
             int tempX, tempY;
             foreach (var hit in chests) {
 
@@ -200,30 +250,13 @@ namespace TR {
 
                 ContainerManager.manage.checkIfEmpty(tempX, tempY, null);
                 nearbyChests.Add(ContainerManager.manage.activeChests.First(i => i.xPos == tempX && i.yPos == tempY));
+                Dbgl($"Check List of NearbyChests: {nearbyChests}");
             }
+            Dbgl("End of Find Nearby Chests");
         }
-
-        private static bool fillRecipeIngredientsPatch(CraftingManager __instance, int recipeNo, int variation) {
-
-            var recipe = variation == -1 || Inventory.inv.allItems[recipeNo].craftable.altRecipes.Length == 0 ? 
-                                Inventory.inv.allItems[recipeNo].craftable : 
-                                Inventory.inv.allItems[recipeNo].craftable.altRecipes[variation];
-
-            for (int i = 0; i < recipe.itemsInRecipe.Length; i++) {
-                int invItemId = Inventory.inv.getInvItemId(recipe.itemsInRecipe[i]);
-                __instance.currentRecipeObjects.Add(UnityEngine.Object.Instantiate<GameObject>(__instance.recipeSlot, __instance.RecipeIngredients));
-                __instance.currentRecipeObjects[__instance.currentRecipeObjects.Count - 1]
-                            .GetComponent<FillRecipeSlot>()
-                            .fillRecipeSlotWithAmounts(
-                                invItemId, GetItemCount(invItemId), Inventory.inv.allItems[recipeNo].craftable.stackOfItemsInRecipe[i]
-                            );
-                Dbgl($"Running GetItemCount Method: {GetItemCount(invItemId)}");
-            }
-            return false;
-        }
-        
         // Fills a dictionary with info about the items in player inventory and nearby chests
         public static void ParseAllItems() {
+            Dbgl("Start parse Recipe");
             FindNearbyChests();
 
             // Clear the existing dictionary
@@ -238,6 +271,7 @@ namespace TR {
                 for (var i = 0; i < chest.itemIds.Length; i++)
                     AddItem(chest.itemIds[i], chest.itemStacks[i], i, chest);
             }
+            Dbgl("End Parse Recipe");
         }
 
         public static void AddItem(int itemID, int quantity, int slotID, Chest chest) {
@@ -250,6 +284,7 @@ namespace TR {
             source.chest = chest;
             source.slotID = slotID;
 
+            Dbgl($"Radius: {radius.Value}");
             if (chest == null) { 
                 source.playerInventory = true; 
                 info.sources.Insert(0, source);
