@@ -7,8 +7,8 @@
     <ProjectGuid>{1E849F00-09AF-444A-9BCD-B7938E76082D}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>StorageCrafting</RootNamespace>
-    <AssemblyName>StorageCrafting</AssemblyName>
+    <RootNamespace>CraftFromStorage</RootNamespace>
+    <AssemblyName>CraftFromStorage</AssemblyName>
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
@@ -30,8 +30,14 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
+  <PropertyGroup>
+    <PreBuildEvent>call C:\PreAndPostBuildBats\StorageCrafting\deleteSC.bat</PreBuildEvent>
+  </PropertyGroup>
+  <PropertyGroup>
+    <PostBuildEvent>call C:\PreAndPostBuildBats\StorageCrafting\moveSC.bat</PostBuildEvent>
+  </PropertyGroup>
   <ItemGroup>
-    <Compile Include="StorageCrafting.cs" />
+    <Compile Include="CraftFromStorage.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
