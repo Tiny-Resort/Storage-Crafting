@@ -98,7 +98,7 @@ namespace TR {
             
             harmony.Patch(fillRecipeIngredients, new HarmonyMethod(fillRecipeIngredientsPatch));
             harmony.Patch(takeItemsForRecipe, new HarmonyMethod(takeItemsForRecipePatch));
-            //harmony.Patch(populateCraftList, new HarmonyMethod(populateCraftListPrefix));
+            harmony.Patch(populateCraftList, new HarmonyMethod(populateCraftListPrefix));
             harmony.Patch(canBeCrafted, new HarmonyMethod(canBeCraftedPatch));
             harmony.Patch(pickUp, new HarmonyMethod(pickUpPatch));
             harmony.Patch(craftItem, new HarmonyMethod(craftItemPrefix));
@@ -135,7 +135,6 @@ namespace TR {
                 if (GetItemCount(invItemId) < count) {
                     result = false;
                     Dbgl($"GetItemCount(invItemId) < count canBeCraftedPatch: {++Sequence}");
-
                     break;
                 }
             }
