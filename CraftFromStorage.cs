@@ -22,12 +22,12 @@ using I2.Loc;
 using Steamworks;
 using TR;
 
-// TODO: GUI element to tell us how many are in chest vs inventory (next to recipe)
-// TODO: Work out kinks with being inside a house
-// TODO: Add warning for someone taking items out. 
-// TODO: Take items out as soon as craft button is pressed
-// TODO: Fix multiplayer client not scanning for nearby chests
-// TODO: Crafting Table in the mines loses cursor(?) make check to test if underground
+// TODO: (POST RELEASE) Add UI Indicator to list # of items from chests vs player's inventory, mark which is first, and where it will be taken from
+// TODO: (POST RELEASE) (OpenChestFromServer?) Make fully functional in multiplayer. It currently doesn't work at all for clients. (Works if you look in chest, but doesn't remove items)
+// TODO: (POST RELEASE) Potentially add functionality in the deep mines (if enough people request)
+
+// BUG: (POST RELEASE) Removing items while in dialog with Franklyn (or Ted Selly) will cause item duplication (remove items right away, but restore if canceled)
+
 namespace TR {
 
     [BepInPlugin(pluginGuid, pluginName, pluginVersion)]
@@ -41,19 +41,21 @@ namespace TR {
         public static ConfigEntry<int> nexusID;
         public static ConfigEntry<int> radius;
         public static ConfigEntry<bool> playerFirst;
+        public static ConfigEntry<bool> isDebug;
         public static Vector3 currentPosition;
         public static List<ChestPlaceable> knownChests = new List<ChestPlaceable>();
         public static List<Chest> nearbyChests = new List<Chest>();
         public static bool usableTable;
-        public static int Sequence = 0;
+        public static bool clientInServer;
+        public static HouseDetails currentHouseDetails;
+        public static Transform playerHouseTransform;
+        public static bool isInside;
         
         public static Dictionary<int, InventoryItem> allItems = new Dictionary<int, InventoryItem>();
         public static bool allItemsInitialized;
-
-        public static bool isDebug = true;
-
+        
         public static void Dbgl(string str = "") {
-            if (isDebug) { StaticLogger.LogInfo(str); }
+            if (isDebug.Value) { StaticLogger.LogInfo(str); }
         }
 
         private void Awake() {
@@ -65,7 +67,7 @@ namespace TR {
             nexusID = Config.Bind<int>("General", "NexusID", 28, "Nexus mod ID for updates");
             radius = Config.Bind<int>("General", "Range", 30, "Increases the range it looks for storage containers by an approximate tile count.");
             playerFirst = Config.Bind<bool>("General", "UsePlayerInventoryFirst", true, "Sets whether it pulls items out of player's inventory first (pulls from chests first if false)");
-            
+            isDebug = Config.Bind<bool>("General", "DebugMode", false, "Turns on debug mode. This makes it laggy when attempting to craft.");
             #endregion
 
             #region Logging
@@ -91,7 +93,7 @@ namespace TR {
             MethodInfo canBeCrafted = AccessTools.Method(typeof(CraftingManager), "canBeCrafted");
             MethodInfo craftItem = AccessTools.Method(typeof(CraftingManager), "craftItem");
             MethodInfo update = AccessTools.Method(typeof(CharInteract), "Update");
-
+            MethodInfo updateRWTL = AccessTools.Method(typeof(RealWorldTimeLight), "Update");
 
             MethodInfo fillRecipeIngredientsPatch = AccessTools.Method(typeof(CraftFromStorage), "fillRecipeIngredientsPatch");
             MethodInfo takeItemsForRecipePatch = AccessTools.Method(typeof(CraftFromStorage), "takeItemsForRecipePatch");
@@ -101,7 +103,8 @@ namespace TR {
             MethodInfo canBeCraftedPatch = AccessTools.Method(typeof(CraftFromStorage), "canBeCraftedPatch");
             MethodInfo craftItemPrefix = AccessTools.Method(typeof(CraftFromStorage), "craftItemPrefix");
             MethodInfo updatePrefix = AccessTools.Method(typeof(CraftFromStorage), "updatePrefix");
-            
+            MethodInfo updateRWTLPrefix = AccessTools.Method(typeof(CraftFromStorage), "updateRWTLPrefix");
+
             harmony.Patch(fillRecipeIngredients, new HarmonyMethod(fillRecipeIngredientsPatch));
             harmony.Patch(takeItemsForRecipe, new HarmonyMethod(takeItemsForRecipePatch));
             harmony.Patch(populateCraftList, new HarmonyMethod(populateCraftListPrefix));
@@ -110,15 +113,29 @@ namespace TR {
             harmony.Patch(canBeCrafted, new HarmonyMethod(canBeCraftedPatch));
             harmony.Patch(craftItem, new HarmonyMethod(craftItemPrefix));
             harmony.Patch(update, new HarmonyMethod(updatePrefix));
+            harmony.Patch(updateRWTL, new HarmonyMethod(updateRWTLPrefix));
+
 
             #endregion
         }
+
+        public static bool disableMod() {
+            if (clientInServer || RealWorldTimeLight.time.underGround) return true;
+            return false;
+        }
+
+        [HarmonyPrefix]
+        private static void updateRWTLPrefix(RealWorldTimeLight __instance) {
+            // Clients in a multiplayer world should not be able to craft from storage
+            if (!__instance.isServer)
+                clientInServer = true;
+            else { clientInServer = false; }
+        }
         
         private static void InitializeAllItems() {
+            if (disableMod()) return;
             allItemsInitialized = true;
             foreach (var item in Inventory.inv.allItems) {
-                Dbgl($"InitializeAllItems {item}: {item.getItemId()}");
-
                 var id = item.getItemId();
                 allItems[id] = item;
             }
@@ -126,12 +143,14 @@ namespace TR {
 
         [HarmonyPrefix]
         public static void craftItemPrefix(CraftingManager __instance, int currentlyCrafting, int ___currentVariation) {
+            if (disableMod()) return;
             ParseAllItems();
         }
         
         [HarmonyPrefix]
         public static bool pressCraftButtonPrefix(CraftingManager __instance, int ___currentVariation) {
-        
+            if (disableMod()) return true;
+
             // For checking if something was changed about the recipe items after opening recipe
             var wasCraftable = __instance.CraftButton.GetComponent<UnityEngine.UI.Image>().color == UIAnimationManager.manage.yesColor;
                 	
@@ -160,17 +179,21 @@ namespace TR {
             return false;
             
         }
+        
         [HarmonyPrefix]
         public static void closeCraftPopupPrefix(CraftingManager __instance, CraftingManager.CraftingMenuType ___menuTypeOpen) {
+            if (disableMod()) return;
+
+            Dbgl($"Start of CloseCraftPopupPrefix");
             if (!__instance.craftWindowPopup.activeInHierarchy) return;
-            //var sort = (Recipe.CraftingCatagory)AccessTools.Field(typeof(CraftingManager), "sortingBy").GetValue(__instance);
-            //updateCraftingList(__instance);
-            MethodInfo methodInfo = typeof(CraftingManager).GetMethod("populateCraftList", BindingFlags.NonPublic | BindingFlags.Instance);
-            var parameters = new object[] { ___menuTypeOpen };
-            methodInfo.Invoke(__instance, parameters);
+            ParseAllItems();
+            __instance.updateCanBeCraftedOnAllRecipeButtons();
+            Dbgl($"Ennd of CloseCraftPopupPrefix");
+
         }
 
         public static bool canBeCraftedPatch(CraftingManager __instance, int itemId, int ___currentVariation, ref bool __result) {
+            if (disableMod()) return true;
 
             bool result = true;
             int num = Inventory.inv.allItems[itemId].value * 2;
@@ -195,9 +218,10 @@ namespace TR {
         }
 
         public static bool takeItemsForRecipePatch(CraftingManager __instance, int currentlyCrafting, int ___currentVariation) {
+            if (disableMod()) return true;
             var recipe = ___currentVariation == -1 || Inventory.inv.allItems[currentlyCrafting].craftable.altRecipes.Length == 0 ? 
-                                Inventory.inv.allItems[currentlyCrafting].craftable : 
-                                Inventory.inv.allItems[currentlyCrafting].craftable.altRecipes[___currentVariation];
+                             Inventory.inv.allItems[currentlyCrafting].craftable : 
+                             Inventory.inv.allItems[currentlyCrafting].craftable.altRecipes[___currentVariation];
 
             for (int i = 0; i < recipe.itemsInRecipe.Length; i++) {
                 int invItemId = Inventory.inv.getInvItemId(recipe.itemsInRecipe[i]);
@@ -235,16 +259,21 @@ namespace TR {
         }
 
         public static void removeFromPlayerInventory(int itemID, int slotID, int amountRemaining) {
+            if (disableMod()) return;
             Inventory.inv.invSlots[slotID].stack = amountRemaining;
             Inventory.inv.invSlots[slotID].updateSlotContentsAndRefresh(amountRemaining == 0 ? -1 : itemID, amountRemaining);
         }
         
         [HarmonyPrefix]
         public static void populateCraftListPrefix() {
+            if (disableMod()) return;
             ParseAllItems();
         }
 
         public static bool fillRecipeIngredientsPatch(CraftingManager __instance, int recipeNo, int variation) {
+            if (disableMod()) return true;
+            Dbgl($"Start of fillRecipeIngredientsPatch");
+
             var recipe = variation == -1 || Inventory.inv.allItems[recipeNo].craftable.altRecipes.Length == 0 ? 
                              Inventory.inv.allItems[recipeNo].craftable : 
                              Inventory.inv.allItems[recipeNo].craftable.altRecipes[variation];
@@ -257,26 +286,49 @@ namespace TR {
                             .fillRecipeSlotWithAmounts(
                                 invItemId, GetItemCount(invItemId), Inventory.inv.allItems[recipeNo].craftable.stackOfItemsInRecipe[i]
                             );
-              //  Dbgl($"Running GetItemCount Method: {GetItemCount(invItemId)}");
             }
+            Dbgl($"End of fillRecipeIngredientsPatch");
+
             return false;
         }
 
         [HarmonyPrefix]
         public static void updatePrefix(CharInteract __instance) {
+            if (disableMod() || !__instance.isLocalPlayer) return;
+            
             currentPosition = __instance.transform.position;
-            if (Input.GetKeyDown(KeyCode.F12)) Dbgl($"Current Position: ({currentPosition.x}, {currentPosition.y}, {currentPosition.z})");
+            
+            if (Input.GetKeyDown(KeyCode.F12)) Dbgl($"Current Position: ({currentPosition.x}, {currentPosition.y}, {currentPosition.z}) | Underground: {RealWorldTimeLight.time.underGround}");
+            currentHouseDetails = __instance.insideHouseDetails;
+            playerHouseTransform = __instance.playerHouseTransform;
+            isInside = __instance.insidePlayerHouse;
+
         }
         
         public static void FindNearbyChests() {
+            if (disableMod()) return;
             nearbyChests.Clear();
 
-            //var chests = Physics.OverlapBox(currentPosition, new Vector3(radius.Value, radius.Value, 7));
-            var chests = Physics.OverlapSphere(currentPosition, radius.Value * 2, 15);
+            var chests = new List<(Collider hit , bool insideHouse)>();
+            Collider[] chestsInsideHouse;
+            Collider[] chestsOutside;
             int tempX, tempY;
-            foreach (var hit in chests) {
 
-                ChestPlaceable chestComponent = hit.GetComponentInParent<ChestPlaceable>();
+            Dbgl($"{currentPosition.x} {0} {currentPosition.z}");
+            chestsOutside = Physics.OverlapBox(new Vector3(currentPosition.x, -7, currentPosition.z), new Vector3(radius.Value, 40, radius.Value));
+            Dbgl($"{currentPosition.x} {-88} {currentPosition.z}");
+            chestsInsideHouse = Physics.OverlapBox(new Vector3(currentPosition.x, -88, currentPosition.z), new Vector3(radius.Value, 2, radius.Value));
+
+            
+            for (var i = 0; i < chestsInsideHouse.Length; i++) {
+                chests.Add((chestsInsideHouse[i], true));
+            }
+            for (var j = 0; j < chestsOutside.Length; j++) {
+                chests.Add((chestsOutside[j], false));
+            }
+            for (var k = 0; k < chests.Count; k++) {
+
+                ChestPlaceable chestComponent = chests[k].hit.GetComponentInParent<ChestPlaceable>();
                 if (chestComponent == null) continue;
                 if (!knownChests.Contains(chestComponent)) { knownChests.Add(chestComponent); }
 
@@ -284,19 +336,29 @@ namespace TR {
                 var layer = chestComponent.gameObject.layer;
                 var name = chestComponent.gameObject.name;
                 var tag = chestComponent.gameObject.tag;
-               // Dbgl($"ID: {id} | Layer: {layer} | Name: {name} | Tag: {tag}");
+
+                // Dbgl($"ID: {id} | Layer: {layer} | Name: {name} | Tag: {tag}");
 
                 tempX = chestComponent.myXPos();
                 tempY = chestComponent.myYPos();
 
-                ContainerManager.manage.checkIfEmpty(tempX, tempY, null);
-                nearbyChests.Add(ContainerManager.manage.activeChests.First(i => i.xPos == tempX && i.yPos == tempY));
+                if (chests[k].insideHouse) {
+                    ContainerManager.manage.checkIfEmpty(tempX, tempY, currentHouseDetails);
+                }
+                else
+                    ContainerManager.manage.checkIfEmpty(tempX, tempY, null);
+
+                if (!nearbyChests.Contains(ContainerManager.manage.activeChests.First(i => i.xPos == tempX && i.yPos == tempY && i.inside == chests[k].insideHouse))) {
+                    nearbyChests.Add(ContainerManager.manage.activeChests.First(i => i.xPos == tempX && i.yPos == tempY && i.inside == chests[k].insideHouse));
+                }
+                
             }
         }
         
         // Fills a dictionary with info about the items in player inventory and nearby chests
         public static void ParseAllItems() {
-        
+
+            if (disableMod()) return;
             if (!allItemsInitialized) { InitializeAllItems(); }
         
             // Recreate known chests and clear items
@@ -331,14 +393,13 @@ namespace TR {
             source.chest = chest;
             source.slotID = slotID;
 
-            // Dbgl($"Radius: {radius.Value}");
             if (chest == null) { 
                 source.playerInventory = true; 
                 info.sources.Insert(0, source);
-              //  Dbgl($"Player Inventory -- Slot ID: {slotID} | ItemID: {itemID} | Quantity: {source.quantity}");
+                Dbgl($"Player Inventory -- Slot ID: {slotID} | ItemID: {itemID} | Quantity: {source.quantity}");
             } else {
                 info.sources.Add(source);
-              //  Dbgl($"Chest Inventory -- Slot ID: {slotID} | ItemID: {itemID} | Quantity: {source.quantity} | Chest X: {chest.xPos} | Chest Y: {chest.yPos}");
+                Dbgl($"Chest Inventory{chest} -- Slot ID: {slotID} | ItemID: {itemID} | Quantity: {source.quantity} | Chest X: {chest.xPos} | Chest Y: {chest.yPos}");
             }
             nearbyItems[itemID] = info;
 
