@@ -39,6 +39,9 @@
   <ItemGroup>
     <Compile Include="CraftFromStorage.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Tiny Resort Tools\ModWindow.cs" />
+    <Compile Include="Tiny Resort Tools\NotificationPatch.cs" />
+    <Compile Include="Tiny Resort Tools\Tools.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="0Harmony, Version=2.9.0.0, Culture=neutral, processorArchitecture=MSIL">
