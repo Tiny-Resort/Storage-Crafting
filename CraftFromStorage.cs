@@ -19,6 +19,7 @@ using BepInEx.Unity.Bootstrap;
 using UnityEngine.InputSystem;
 using System.Runtime.Serialization.Formatters.Binary;
 using I2.Loc;
+using Steamworks;
 
 // TODO: GUI element to tell us how many are in chest vs inventory (next to recipe)
 // TODO: Work out kinks with being inside a house
@@ -42,11 +43,14 @@ namespace TR {
         public static RealWorldTimeLight realWorld;
         public static ConfigEntry<int> nexusID;
         public static ConfigEntry<int> radius;
-        public static Transform currentTransform;
+        public static Vector3 currentPosition;
         public static List<ChestPlaceable> knownChests = new List<ChestPlaceable>();
         public static List<Chest> nearbyChests = new List<Chest>();
         public static bool usableTable;
         public static int Sequence = 0;
+        
+        public static Dictionary<int, InventoryItem> allItems = new Dictionary<int, InventoryItem>();
+        public static bool allItemsInitialized;
 
         public static bool isDebug = true;
 
@@ -82,29 +86,51 @@ namespace TR {
 
             MethodInfo fillRecipeIngredients = AccessTools.Method(typeof(CraftingManager), "fillRecipeIngredients");
             MethodInfo takeItemsForRecipe = AccessTools.Method(typeof(CraftingManager), "takeItemsForRecipe");
+            MethodInfo showRecipeForItem = AccessTools.Method(typeof(CraftingManager), "showRecipeForItem");
             MethodInfo populateCraftList = AccessTools.Method(typeof(CraftingManager), "populateCraftList");
+            MethodInfo pressCraftButton = AccessTools.Method(typeof(CraftingManager), "pressCraftButton");
+            MethodInfo closeCraftPopup = AccessTools.Method(typeof(CraftingManager), "closeCraftPopup");
             MethodInfo canBeCrafted = AccessTools.Method(typeof(CraftingManager), "canBeCrafted");
-            MethodInfo pickUp = AccessTools.Method(typeof(CharPickUp), "pickUp");
             MethodInfo craftItem = AccessTools.Method(typeof(CraftingManager), "craftItem");
+            //MethodInfo pickUp = AccessTools.Method(typeof(CharPickUp), "pickUp");
+            MethodInfo update = AccessTools.Method(typeof(CharInteract), "Update");
 
 
             MethodInfo fillRecipeIngredientsPatch = AccessTools.Method(typeof(CraftFromStorage), "fillRecipeIngredientsPatch");
             MethodInfo takeItemsForRecipePatch = AccessTools.Method(typeof(CraftFromStorage), "takeItemsForRecipePatch");
             MethodInfo populateCraftListPrefix = AccessTools.Method(typeof(CraftFromStorage), "populateCraftListPrefix");
+            MethodInfo showRecipeForItemPrefix = AccessTools.Method(typeof(CraftFromStorage), "showRecipeForItemPrefix");
+            MethodInfo pressCraftButtonPrefix = AccessTools.Method(typeof(CraftFromStorage), "pressCraftButtonPrefix");
+            MethodInfo closeCraftPopupPrefix = AccessTools.Method(typeof(CraftFromStorage), "closeCraftPopupPrefix");
             MethodInfo canBeCraftedPatch = AccessTools.Method(typeof(CraftFromStorage), "canBeCraftedPatch");
-            MethodInfo pickUpPatch = AccessTools.Method(typeof(CraftFromStorage), "pickUpPatch");
             MethodInfo craftItemPrefix = AccessTools.Method(typeof(CraftFromStorage), "craftItemPrefix");
-
+           // MethodInfo pickUpPatch = AccessTools.Method(typeof(CraftFromStorage), "pickUpPatch");
+            MethodInfo updatePrefix = AccessTools.Method(typeof(CraftFromStorage), "updatePrefix");
             
             harmony.Patch(fillRecipeIngredients, new HarmonyMethod(fillRecipeIngredientsPatch));
             harmony.Patch(takeItemsForRecipe, new HarmonyMethod(takeItemsForRecipePatch));
+            harmony.Patch(showRecipeForItem, new HarmonyMethod(showRecipeForItemPrefix));
             harmony.Patch(populateCraftList, new HarmonyMethod(populateCraftListPrefix));
+            harmony.Patch(pressCraftButton, new HarmonyMethod(pressCraftButtonPrefix));
+            harmony.Patch(closeCraftPopup, new HarmonyMethod(closeCraftPopupPrefix));
             harmony.Patch(canBeCrafted, new HarmonyMethod(canBeCraftedPatch));
-            harmony.Patch(pickUp, new HarmonyMethod(pickUpPatch));
             harmony.Patch(craftItem, new HarmonyMethod(craftItemPrefix));
-
+            harmony.Patch(update, new HarmonyMethod(updatePrefix));
+            
+            /*foreach (var item in Inventory.inv.allItems) {
+                var id = item.getItemId();
+                allItems[id] = item;
+            }*/
             
             #endregion
+        }
+        
+        private static void InitializeAllItems() {
+            allItemsInitialized = true;
+            foreach (var item in Inventory.inv.allItems) {
+                var id = item.getItemId();
+                allItems[id] = item;
+            }
         }
 
         [HarmonyPrefix]
@@ -113,12 +139,53 @@ namespace TR {
             ParseAllItems();
             Dbgl($"Craft Item After RecipeForItem: {++Sequence}");
         }
+        
+        [HarmonyPrefix]
+        public static bool pressCraftButtonPrefix(CraftingManager __instance, int ___currentVariation) {
+        
+            // For checking if something was changed about the recipe items after opening recipe
+            var wasCraftable = __instance.CraftButton.GetComponent<UnityEngine.UI.Image>().color == UIAnimationManager.manage.yesColor;
+                	
+            Dbgl($"Press Craft Button: {++Sequence}");
+            ParseAllItems();
+            __instance.showRecipeForItem(__instance.craftableItemId, ___currentVariation, false);
+            var craftable = __instance.canBeCrafted(__instance.craftableItemId);
+            var showingRecipesFromMenu = (CraftingManager.CraftingMenuType) AccessTools.Field(typeof(CraftingManager), "showingRecipesFromMenu").GetValue(__instance);
+        
+            // If it can't be crafted, play a sound
+        	if (!craftable) { 
+        	    SoundManager.manage.play2DSound(SoundManager.manage.buttonCantPressSound); 
+        	    if (wasCraftable) {  } // TODO: Show notification using TinyTools 
+        	}
+        	else if (showingRecipesFromMenu != CraftingManager.CraftingMenuType.CraftingShop &&
+                     showingRecipesFromMenu != CraftingManager.CraftingMenuType.TrapperShop &&
+                     !Inventory.inv.checkIfItemCanFit(__instance.craftableItemId, Inventory.inv.allItems[__instance.craftableItemId].craftable.recipeGiveThisAmount)) {
+        		SoundManager.manage.play2DSound(SoundManager.manage.pocketsFull);
+        		NotificationManager.manage.createChatNotification((LocalizedString)"ToolTips/Tip_PocketsFull", specialTip: true);
+        	} 
+        	
+        	else {
+        	    // TODO: Take items out of inventory before crafting, then somehow stop it from taking them out later 
+        	    __instance.StartCoroutine(__instance.startCrafting(__instance.craftableItemId)); 
+        	}
+        	
+            return false;
+            
+        }
+        [HarmonyPrefix]
+        public static void closeCraftPopupPrefix(CraftingManager __instance, CraftingManager.CraftingMenuType ___menuTypeOpen) {
+            if (!__instance.craftWindowPopup.activeInHierarchy) return;
+            //var sort = (Recipe.CraftingCatagory)AccessTools.Field(typeof(CraftingManager), "sortingBy").GetValue(__instance);
+            Dbgl($"Test: {++Sequence}");
+            //updateCraftingList(__instance);
+            MethodInfo methodInfo = typeof(CraftingManager).GetMethod("populateCraftList", BindingFlags.NonPublic | BindingFlags.Instance);
+            var parameters = new object[] { ___menuTypeOpen };
+            methodInfo.Invoke(__instance, parameters);
+            Dbgl($"After Method Invoke: {++Sequence}");
+        }
 
         public static bool canBeCraftedPatch(CraftingManager __instance, int itemId, int ___currentVariation, ref bool __result) {
             Dbgl($"Start canBeCraftedPatch: {++Sequence}");
-
-            ParseAllItems();
-            Dbgl($"After ParseAllItems canBeCraftedPatch: {++Sequence}");
 
             bool result = true;
             int num = Inventory.inv.allItems[itemId].value * 2;
@@ -134,7 +201,7 @@ namespace TR {
                 int count = recipe.stackOfItemsInRecipe[i];
                 if (GetItemCount(invItemId) < count) {
                     result = false;
-                    Dbgl($"GetItemCount(invItemId) < count canBeCraftedPatch: {++Sequence}");
+                    Dbgl($"GetItemCount(invItemId) {invItemId} < count canBeCraftedPatch: {++Sequence}");
                     break;
                 }
             }
@@ -189,25 +256,6 @@ namespace TR {
 
             return false;
         }
-        
-        /* Gets the transform of the crafting table */
-        [HarmonyPrefix]
-        public static void pickUpPatch(CharPickUp __instance) {
-            
-            if (Physics.Raycast(__instance.transform.position + __instance.transform.forward * 1.5f + Vector3.up * 3f, 
-                                Vector3.down, out var hitInfo2, 3.1f, __instance.pickUpLayerMask)) {
-                WorkTable componentInParent5 = hitInfo2.transform.GetComponentInParent<WorkTable>();
-                if ((bool)componentInParent5) {
-
-                    if (componentInParent5.typeOfCrafting == CraftingManager.CraftingMenuType.CookingTable ||
-                        componentInParent5.typeOfCrafting == CraftingManager.CraftingMenuType.CraftingTable) {
-                        currentTransform = componentInParent5.transform;
-                    } else Dbgl($"Type of Crafting Table: {componentInParent5.typeOfCrafting}");
-                    Dbgl($"Work Table Name: {componentInParent5.workTableName}");
-                    currentTransform = componentInParent5.transform;
-                }
-            }
-        }
 
         [HarmonyPrefix]
         public static void populateCraftListPrefix() {
@@ -218,7 +266,12 @@ namespace TR {
 
         }
         
-        private static bool fillRecipeIngredientsPatch(CraftingManager __instance, int recipeNo, int variation) {
+        [HarmonyPrefix]
+        public static void showRecipeForItemPrefix() {
+          Dbgl($"Start of showRecipeForItemPrefix: {++Sequence}");
+        }
+        
+        public static bool fillRecipeIngredientsPatch(CraftingManager __instance, int recipeNo, int variation) {
             Dbgl($"Start of fillRecipeIngredientsPatch: {++Sequence}");
             var recipe = variation == -1 || Inventory.inv.allItems[recipeNo].craftable.altRecipes.Length == 0 ? 
                              Inventory.inv.allItems[recipeNo].craftable : 
@@ -238,9 +291,17 @@ namespace TR {
             return false;
         }
 
+        [HarmonyPrefix]
+        public static void updatePrefix(CharInteract __instance) {
+            currentPosition = __instance.transform.position;
+            if (Input.GetKeyDown(KeyCode.F12)) Dbgl($"Current Position: ({currentPosition.x}, {currentPosition.y}, {currentPosition.z})");
+        }
+        
         public static void FindNearbyChests() {
             nearbyChests.Clear();
-            var chests = Physics.OverlapSphere(currentTransform.position, radius.Value * 2, 15);
+
+            //var chests = Physics.OverlapBox(currentPosition, new Vector3(radius.Value, radius.Value, 7));
+            var chests = Physics.OverlapSphere(currentPosition, radius.Value * 2, 15);
             int tempX, tempY;
             foreach (var hit in chests) {
 
@@ -268,25 +329,29 @@ namespace TR {
         
         // Fills a dictionary with info about the items in player inventory and nearby chests
         public static void ParseAllItems() {
+        
+            if (!allItemsInitialized) { InitializeAllItems(); }
+        
+            // Recreate known chests and clear items
             FindNearbyChests();
-
-            // Clear the existing dictionary
             nearbyItems.Clear();
 
             // Get all items in player inventory
             for (var i = 0; i < Inventory.inv.invSlots.Length; i++)
-                AddItem(Inventory.inv.invSlots[i].itemNo, Inventory.inv.invSlots[i].stack, i, null);
+                AddItem(Inventory.inv.invSlots[i].itemNo, Inventory.inv.invSlots[i].stack, i, allItems[Inventory.inv.invSlots[i].itemNo].checkIfStackable(), null);
 
             // Get all items in nearby chests
             foreach (var chest in nearbyChests) {
                 for (var i = 0; i < chest.itemIds.Length; i++)
-                    AddItem(chest.itemIds[i], chest.itemStacks[i], i, chest);
+                    AddItem(chest.itemIds[i], chest.itemStacks[i], i, allItems[chest.itemIds[i]].checkIfStackable(), chest);
             }
+            
         }
 
-        public static void AddItem(int itemID, int quantity, int slotID, Chest chest) {
+        public static void AddItem(int itemID, int quantity, int slotID, bool isStackable, Chest chest) {
 
             if (!nearbyItems.TryGetValue(itemID, out var info)) { info = new ItemInfo(); }
+            if (!isStackable) quantity = 1;
             info.quantity += quantity;
             
             ItemStack source = new ItemStack();
@@ -294,7 +359,7 @@ namespace TR {
             source.chest = chest;
             source.slotID = slotID;
 
-           // Dbgl($"Radius: {radius.Value}");
+            // Dbgl($"Radius: {radius.Value}");
             if (chest == null) { 
                 source.playerInventory = true; 
                 info.sources.Insert(0, source);
