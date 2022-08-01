@@ -36,7 +36,7 @@ namespace TR {
 
         public const string pluginGuid = "tinyresort.dinkum.craftFromStorage";
         public const string pluginName = "Craft From Storage";
-        public const string pluginVersion = "0.5.1";
+        public const string pluginVersion = "0.5.3";
         public static ManualLogSource StaticLogger;
         public static RealWorldTimeLight realWorld;
         public static ConfigEntry<int> nexusID;
@@ -45,7 +45,7 @@ namespace TR {
         public static ConfigEntry<bool> isDebug;
         public static Vector3 currentPosition;
         public static List<ChestPlaceable> knownChests = new List<ChestPlaceable>();
-        public static List<Chest> nearbyChests = new List<Chest>();
+        public static List<(Chest chest, HouseDetails house)> nearbyChests = new List<(Chest chest, HouseDetails house)>();
         public static bool usableTable;
         public static bool clientInServer;
         public static HouseDetails currentHouseDetails;
@@ -122,7 +122,7 @@ namespace TR {
         }
 
         public static bool disableMod() {
-            if (clientInServer || RealWorldTimeLight.time.underGround) return true;
+            if (RealWorldTimeLight.time.underGround) return true;
             return false;
         }
 
@@ -186,11 +186,9 @@ namespace TR {
         public static void closeCraftPopupPrefix(CraftingManager __instance, CraftingManager.CraftingMenuType ___menuTypeOpen) {
             if (disableMod()) return;
 
-            Dbgl($"Start of CloseCraftPopupPrefix");
             if (!__instance.craftWindowPopup.activeInHierarchy) return;
             ParseAllItems();
             __instance.updateCanBeCraftedOnAllRecipeButtons();
-            Dbgl($"Ennd of CloseCraftPopupPrefix");
 
         }
 
@@ -224,7 +222,11 @@ namespace TR {
             var recipe = ___currentVariation == -1 || Inventory.inv.allItems[currentlyCrafting].craftable.altRecipes.Length == 0 ? 
                              Inventory.inv.allItems[currentlyCrafting].craftable : 
                              Inventory.inv.allItems[currentlyCrafting].craftable.altRecipes[___currentVariation];
-
+            
+            for (int i = 0; i < HouseManager.manage.allHouses.Count; i++) {
+                if (HouseManager.manage.allHouses[i].isThePlayersHouse) { playerHouse = HouseManager.manage.allHouses[i]; }
+            }
+            
             for (int i = 0; i < recipe.itemsInRecipe.Length; i++) {
                 int invItemId = Inventory.inv.getInvItemId(recipe.itemsInRecipe[i]);
                 int amountToRemove = recipe.stackOfItemsInRecipe[i];
@@ -246,8 +248,8 @@ namespace TR {
                             info.sources[d].chest.yPos,
                             info.sources[d].slotID, 
                             removed >= info.sources[d].quantity ? -1 : invItemId,
-                            info.sources[d].quantity - removed, 
-                            null
+                            info.sources[d].quantity - removed,
+                            info.sources[d].inPlayerHouse
                         );
                     }
                     amountToRemove -= removed;
@@ -322,9 +324,9 @@ namespace TR {
                 }
             }
             Dbgl($"{currentPosition.x} {0} {currentPosition.z}");
-            chestsOutside = Physics.OverlapBox(new Vector3(currentPosition.x, -7, currentPosition.z), new Vector3(radius.Value, 40, radius.Value));
+            chestsOutside = Physics.OverlapBox(new Vector3(currentPosition.x, -7, currentPosition.z), new Vector3(radius.Value*2, 40, radius.Value*2));
             Dbgl($"{currentPosition.x} {-88} {currentPosition.z}");
-            chestsInsideHouse = Physics.OverlapBox(new Vector3(currentPosition.x, -88, currentPosition.z), new Vector3(radius.Value, 5, radius.Value));
+            chestsInsideHouse = Physics.OverlapBox(new Vector3(currentPosition.x, -88, currentPosition.z), new Vector3(radius.Value*2, 5, radius.Value*2));
 
             
             for (var i = 0; i < chestsInsideHouse.Length; i++) {
@@ -349,18 +351,12 @@ namespace TR {
                 tempX = chestComponent.myXPos();
                 tempY = chestComponent.myYPos();
 
-                if (chests[k].insideHouse) {
-                    ContainerManager.manage.checkIfEmpty(tempX, tempY, playerHouse);
-                }
+                if (chests[k].insideHouse) { ContainerManager.manage.checkIfEmpty(tempX, tempY, playerHouse); }
                 else
                     ContainerManager.manage.checkIfEmpty(tempX, tempY, null);
-                
 
-                // TODO: Figure out why cant do i.inside == house details
-                if (!nearbyChests.Contains(ContainerManager.manage.activeChests.First(i => i.xPos == tempX && i.yPos == tempY))) {
-                    nearbyChests.Add(ContainerManager.manage.activeChests.First(i => i.xPos == tempX && i.yPos == tempY));
-                }
-                
+                nearbyChests.Add((ContainerManager.manage.activeChests.First(i => i.xPos == tempX && i.yPos == tempY && i.inside == chests[k].insideHouse), playerHouse));
+                nearbyChests = nearbyChests.Distinct().ToList();
             }
         }
         
@@ -376,19 +372,19 @@ namespace TR {
 
             // Get all items in player inventory
             for (var i = 0; i < Inventory.inv.invSlots.Length; i++) {
-                if (Inventory.inv.invSlots[i].itemNo != -1 && allItems.ContainsKey(Inventory.inv.invSlots[i].itemNo)) AddItem(Inventory.inv.invSlots[i].itemNo, Inventory.inv.invSlots[i].stack, i, allItems[Inventory.inv.invSlots[i].itemNo].checkIfStackable(), null);
+                if (Inventory.inv.invSlots[i].itemNo != -1 && allItems.ContainsKey(Inventory.inv.invSlots[i].itemNo)) AddItem(Inventory.inv.invSlots[i].itemNo, Inventory.inv.invSlots[i].stack, i, allItems[Inventory.inv.invSlots[i].itemNo].checkIfStackable(), null, null);
                 else if (!allItems.ContainsKey(Inventory.inv.invSlots[i].itemNo)) { Dbgl($"Failed Item: {Inventory.inv.invSlots[i].itemNo} |  {Inventory.inv.invSlots[i].stack}");}
             }
 
             // Get all items in nearby chests
-            foreach (var chest in nearbyChests) {
-                for (var i = 0; i < chest.itemIds.Length; i++) {
-                    if (chest.itemIds[i] != -1 && allItems.ContainsKey(chest.itemIds[i])) AddItem(chest.itemIds[i], chest.itemStacks[i], i, allItems[chest.itemIds[i]].checkIfStackable(), chest);
+            foreach (var ChestInfo in nearbyChests) {
+                for (var i = 0; i < ChestInfo.chest.itemIds.Length; i++) {
+                    if (ChestInfo.chest.itemIds[i] != -1 && allItems.ContainsKey(ChestInfo.chest.itemIds[i])) AddItem(ChestInfo.chest.itemIds[i], ChestInfo.chest.itemStacks[i], i, allItems[ChestInfo.chest.itemIds[i]].checkIfStackable(), ChestInfo.house, ChestInfo.chest);
                 }
             }
         }
 
-        public static void AddItem(int itemID, int quantity, int slotID, bool isStackable, Chest chest) {
+        public static void AddItem(int itemID, int quantity, int slotID, bool isStackable, HouseDetails isInHouse, Chest chest) {
 
             if (!nearbyItems.TryGetValue(itemID, out var info)) { info = new ItemInfo(); }
             ItemStack source = new ItemStack();
@@ -402,6 +398,7 @@ namespace TR {
             source.quantity += quantity;
             source.chest = chest;
             source.slotID = slotID;
+            source.inPlayerHouse = isInHouse;
 
             if (chest == null) { 
                 source.playerInventory = true; 
@@ -431,6 +428,7 @@ namespace TR {
             public int slotID;
             public int quantity;
             public int fuel;
+            public HouseDetails inPlayerHouse;
             public Chest chest;
         }
 
