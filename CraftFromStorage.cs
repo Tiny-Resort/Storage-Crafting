@@ -19,6 +19,7 @@ using BepInEx.Unity.Bootstrap;
 using UnityEngine.InputSystem;
 using System.Runtime.Serialization.Formatters.Binary;
 using I2.Loc;
+using Mirror.RemoteCalls;
 using Steamworks;
 using TR;
 
@@ -36,7 +37,7 @@ namespace TR {
 
         public const string pluginGuid = "tinyresort.dinkum.craftFromStorage";
         public const string pluginName = "Craft From Storage";
-        public const string pluginVersion = "0.5.3";
+        public const string pluginVersion = "0.5.4";
         public static ManualLogSource StaticLogger;
         public static RealWorldTimeLight realWorld;
         public static ConfigEntry<int> nexusID;
@@ -52,10 +53,10 @@ namespace TR {
         public static Transform playerHouseTransform;
         public static bool isInside;
         public static HouseDetails playerHouse;
-        
+
         public static Dictionary<int, InventoryItem> allItems = new Dictionary<int, InventoryItem>();
         public static bool allItemsInitialized;
-        
+
         public static void Dbgl(string str = "") {
             if (isDebug.Value) { StaticLogger.LogInfo(str); }
         }
@@ -70,6 +71,7 @@ namespace TR {
             radius = Config.Bind<int>("General", "Range", 30, "Increases the range it looks for storage containers by an approximate tile count.");
             playerFirst = Config.Bind<bool>("General", "UsePlayerInventoryFirst", true, "Sets whether it pulls items out of player's inventory first (pulls from chests first if false)");
             isDebug = Config.Bind<bool>("General", "DebugMode", false, "Turns on debug mode. This makes it laggy when attempting to craft.");
+
             #endregion
 
             #region Logging
@@ -117,12 +119,12 @@ namespace TR {
             harmony.Patch(update, new HarmonyMethod(updatePrefix));
             harmony.Patch(updateRWTL, new HarmonyMethod(updateRWTLPrefix));
 
-
             #endregion
+
         }
 
         public static bool disableMod() {
-            if (RealWorldTimeLight.time.underGround) return true;
+            if (clientInServer || RealWorldTimeLight.time.underGround) return true;
             return false;
         }
 
@@ -132,8 +134,9 @@ namespace TR {
             if (!__instance.isServer)
                 clientInServer = true;
             else { clientInServer = false; }
+
         }
-        
+
         private static void InitializeAllItems() {
             if (disableMod()) return;
             allItemsInitialized = true;
@@ -141,6 +144,7 @@ namespace TR {
                 var id = item.getItemId();
                 allItems[id] = item;
             }
+
         }
 
         [HarmonyPrefix]
@@ -148,40 +152,40 @@ namespace TR {
             if (disableMod()) return;
             ParseAllItems();
         }
-        
+
         [HarmonyPrefix]
         public static bool pressCraftButtonPrefix(CraftingManager __instance, int ___currentVariation) {
             if (disableMod()) return true;
 
             // For checking if something was changed about the recipe items after opening recipe
             var wasCraftable = __instance.CraftButton.GetComponent<UnityEngine.UI.Image>().color == UIAnimationManager.manage.yesColor;
-                	
+
             ParseAllItems();
             __instance.showRecipeForItem(__instance.craftableItemId, ___currentVariation, false);
             var craftable = __instance.canBeCrafted(__instance.craftableItemId);
-            var showingRecipesFromMenu = (CraftingManager.CraftingMenuType) AccessTools.Field(typeof(CraftingManager), "showingRecipesFromMenu").GetValue(__instance);
-        
+            var showingRecipesFromMenu = (CraftingManager.CraftingMenuType)AccessTools.Field(typeof(CraftingManager), "showingRecipesFromMenu").GetValue(__instance);
+
             // If it can't be crafted, play a sound
-        	if (!craftable) { 
-        	    SoundManager.manage.play2DSound(SoundManager.manage.buttonCantPressSound); 
-        	    if (wasCraftable) { Tools.Notify("Craft From Storage", "A required item was removed from your storage."); } // TODO: Show notification using TinyTools 
-        	}
-        	else if (showingRecipesFromMenu != CraftingManager.CraftingMenuType.CraftingShop &&
+            if (!craftable) {
+                SoundManager.manage.play2DSound(SoundManager.manage.buttonCantPressSound);
+                if (wasCraftable) { Tools.Notify("Craft From Storage", "A required item was removed from your storage."); } // TODO: Show notification using TinyTools 
+            }
+            else if (showingRecipesFromMenu != CraftingManager.CraftingMenuType.CraftingShop &&
                      showingRecipesFromMenu != CraftingManager.CraftingMenuType.TrapperShop &&
                      !Inventory.inv.checkIfItemCanFit(__instance.craftableItemId, Inventory.inv.allItems[__instance.craftableItemId].craftable.recipeGiveThisAmount)) {
-        		SoundManager.manage.play2DSound(SoundManager.manage.pocketsFull);
-        		NotificationManager.manage.createChatNotification((LocalizedString)"ToolTips/Tip_PocketsFull", specialTip: true);
-        	} 
-        	
-        	else {
-        	    // TODO: Take items out of inventory before crafting, then somehow stop it from taking them out later 
-        	    __instance.StartCoroutine(__instance.startCrafting(__instance.craftableItemId)); 
-        	}
-        	
+                SoundManager.manage.play2DSound(SoundManager.manage.pocketsFull);
+                NotificationManager.manage.createChatNotification((LocalizedString)"ToolTips/Tip_PocketsFull", specialTip: true);
+            }
+
+            else {
+                // TODO: Take items out of inventory before crafting, then somehow stop it from taking them out later 
+                __instance.StartCoroutine(__instance.startCrafting(__instance.craftableItemId));
+            }
+
             return false;
-            
+
         }
-        
+
         [HarmonyPrefix]
         public static void closeCraftPopupPrefix(CraftingManager __instance, CraftingManager.CraftingMenuType ___menuTypeOpen) {
             if (disableMod()) return;
@@ -200,9 +204,7 @@ namespace TR {
             if (CharLevelManager.manage.checkIfUnlocked(__instance.craftableItemId) && Inventory.inv.allItems[itemId].craftable.workPlaceConditions != CraftingManager.CraftingMenuType.TrapperShop) { num = 0; }
             if (Inventory.inv.wallet < num) { return false; }
 
-            var recipe = ___currentVariation == -1 || Inventory.inv.allItems[itemId].craftable.altRecipes.Length == 0 ? 
-                                Inventory.inv.allItems[itemId].craftable : 
-                                Inventory.inv.allItems[itemId].craftable.altRecipes[___currentVariation];
+            var recipe = ___currentVariation == -1 || Inventory.inv.allItems[itemId].craftable.altRecipes.Length == 0 ? Inventory.inv.allItems[itemId].craftable : Inventory.inv.allItems[itemId].craftable.altRecipes[___currentVariation];
 
             for (int i = 0; i < recipe.itemsInRecipe.Length; i++) {
                 int invItemId = Inventory.inv.getInvItemId(recipe.itemsInRecipe[i]);
@@ -219,14 +221,12 @@ namespace TR {
 
         public static bool takeItemsForRecipePatch(CraftingManager __instance, int currentlyCrafting, int ___currentVariation) {
             if (disableMod()) return true;
-            var recipe = ___currentVariation == -1 || Inventory.inv.allItems[currentlyCrafting].craftable.altRecipes.Length == 0 ? 
-                             Inventory.inv.allItems[currentlyCrafting].craftable : 
-                             Inventory.inv.allItems[currentlyCrafting].craftable.altRecipes[___currentVariation];
-            
+            var recipe = ___currentVariation == -1 || Inventory.inv.allItems[currentlyCrafting].craftable.altRecipes.Length == 0 ? Inventory.inv.allItems[currentlyCrafting].craftable : Inventory.inv.allItems[currentlyCrafting].craftable.altRecipes[___currentVariation];
+
             for (int i = 0; i < HouseManager.manage.allHouses.Count; i++) {
                 if (HouseManager.manage.allHouses[i].isThePlayersHouse) { playerHouse = HouseManager.manage.allHouses[i]; }
             }
-            
+
             for (int i = 0; i < recipe.itemsInRecipe.Length; i++) {
                 int invItemId = Inventory.inv.getInvItemId(recipe.itemsInRecipe[i]);
                 int amountToRemove = recipe.stackOfItemsInRecipe[i];
@@ -246,7 +246,7 @@ namespace TR {
                         ContainerManager.manage.changeSlotInChest(
                             info.sources[d].chest.xPos,
                             info.sources[d].chest.yPos,
-                            info.sources[d].slotID, 
+                            info.sources[d].slotID,
                             removed >= info.sources[d].quantity ? -1 : invItemId,
                             info.sources[d].quantity - removed,
                             info.sources[d].inPlayerHouse
@@ -267,7 +267,7 @@ namespace TR {
             Inventory.inv.invSlots[slotID].stack = amountRemaining;
             Inventory.inv.invSlots[slotID].updateSlotContentsAndRefresh(amountRemaining == 0 ? -1 : itemID, amountRemaining);
         }
-        
+
         [HarmonyPrefix]
         public static void populateCraftListPrefix() {
             if (disableMod()) return;
@@ -276,65 +276,51 @@ namespace TR {
 
         public static bool fillRecipeIngredientsPatch(CraftingManager __instance, int recipeNo, int variation) {
             if (disableMod()) return true;
-            Dbgl($"Start of fillRecipeIngredientsPatch");
-
-            var recipe = variation == -1 || Inventory.inv.allItems[recipeNo].craftable.altRecipes.Length == 0 ? 
-                             Inventory.inv.allItems[recipeNo].craftable : 
-                             Inventory.inv.allItems[recipeNo].craftable.altRecipes[variation];
-
+            var recipe = variation == -1 || Inventory.inv.allItems[recipeNo].craftable.altRecipes.Length == 0 ? Inventory.inv.allItems[recipeNo].craftable : Inventory.inv.allItems[recipeNo].craftable.altRecipes[variation];
             for (int i = 0; i < recipe.itemsInRecipe.Length; i++) {
                 int invItemId = Inventory.inv.getInvItemId(recipe.itemsInRecipe[i]);
                 __instance.currentRecipeObjects.Add(UnityEngine.Object.Instantiate<GameObject>(__instance.recipeSlot, __instance.RecipeIngredients));
                 __instance.currentRecipeObjects[__instance.currentRecipeObjects.Count - 1]
-                            .GetComponent<FillRecipeSlot>()
-                            .fillRecipeSlotWithAmounts(
-                                invItemId, GetItemCount(invItemId), Inventory.inv.allItems[recipeNo].craftable.stackOfItemsInRecipe[i]
-                            );
+                          .GetComponent<FillRecipeSlot>()
+                          .fillRecipeSlotWithAmounts(
+                               invItemId, GetItemCount(invItemId), recipe.stackOfItemsInRecipe[i]
+                           );
             }
-            Dbgl($"End of fillRecipeIngredientsPatch");
-
             return false;
         }
 
         [HarmonyPrefix]
         public static void updatePrefix(CharInteract __instance) {
             if (disableMod() || !__instance.isLocalPlayer) return;
-            
+
             currentPosition = __instance.transform.position;
-            
+
             if (Input.GetKeyDown(KeyCode.F12)) Dbgl($"Current Position: ({currentPosition.x}, {currentPosition.y}, {currentPosition.z}) | Underground: {RealWorldTimeLight.time.underGround}");
             currentHouseDetails = __instance.insideHouseDetails;
             playerHouseTransform = __instance.playerHouseTransform;
             isInside = __instance.insidePlayerHouse;
 
         }
-        
+
         public static void FindNearbyChests() {
             if (disableMod()) return;
             nearbyChests.Clear();
 
-            var chests = new List<(Collider hit , bool insideHouse)>();
+            var chests = new List<(Collider hit, bool insideHouse)>();
             Collider[] chestsInsideHouse;
             Collider[] chestsOutside;
             int tempX, tempY;
 
             for (int i = 0; i < HouseManager.manage.allHouses.Count; i++) {
-                if (HouseManager.manage.allHouses[i].isThePlayersHouse) {
-                    playerHouse = HouseManager.manage.allHouses[i];
-                }
+                if (HouseManager.manage.allHouses[i].isThePlayersHouse) { playerHouse = HouseManager.manage.allHouses[i]; }
             }
             Dbgl($"{currentPosition.x} {0} {currentPosition.z}");
-            chestsOutside = Physics.OverlapBox(new Vector3(currentPosition.x, -7, currentPosition.z), new Vector3(radius.Value*2, 40, radius.Value*2));
+            chestsOutside = Physics.OverlapBox(new Vector3(currentPosition.x, -7, currentPosition.z), new Vector3(radius.Value * 2, 40, radius.Value * 2));
             Dbgl($"{currentPosition.x} {-88} {currentPosition.z}");
-            chestsInsideHouse = Physics.OverlapBox(new Vector3(currentPosition.x, -88, currentPosition.z), new Vector3(radius.Value*2, 5, radius.Value*2));
+            chestsInsideHouse = Physics.OverlapBox(new Vector3(currentPosition.x, -88, currentPosition.z), new Vector3(radius.Value * 2, 5, radius.Value * 2));
 
-            
-            for (var i = 0; i < chestsInsideHouse.Length; i++) {
-                chests.Add((chestsInsideHouse[i], true));
-            }
-            for (var j = 0; j < chestsOutside.Length; j++) {
-                chests.Add((chestsOutside[j], false));
-            }
+            for (var i = 0; i < chestsInsideHouse.Length; i++) { chests.Add((chestsInsideHouse[i], true)); }
+            for (var j = 0; j < chestsOutside.Length; j++) { chests.Add((chestsOutside[j], false)); }
             for (var k = 0; k < chests.Count; k++) {
 
                 ChestPlaceable chestComponent = chests[k].hit.GetComponentInParent<ChestPlaceable>();
@@ -359,21 +345,22 @@ namespace TR {
                 nearbyChests = nearbyChests.Distinct().ToList();
             }
         }
-        
+
         // Fills a dictionary with info about the items in player inventory and nearby chests
         public static void ParseAllItems() {
 
             if (disableMod()) return;
             if (!allItemsInitialized) { InitializeAllItems(); }
-        
+
             // Recreate known chests and clear items
             FindNearbyChests();
             nearbyItems.Clear();
 
             // Get all items in player inventory
             for (var i = 0; i < Inventory.inv.invSlots.Length; i++) {
-                if (Inventory.inv.invSlots[i].itemNo != -1 && allItems.ContainsKey(Inventory.inv.invSlots[i].itemNo)) AddItem(Inventory.inv.invSlots[i].itemNo, Inventory.inv.invSlots[i].stack, i, allItems[Inventory.inv.invSlots[i].itemNo].checkIfStackable(), null, null);
-                else if (!allItems.ContainsKey(Inventory.inv.invSlots[i].itemNo)) { Dbgl($"Failed Item: {Inventory.inv.invSlots[i].itemNo} |  {Inventory.inv.invSlots[i].stack}");}
+                if (Inventory.inv.invSlots[i].itemNo != -1 && allItems.ContainsKey(Inventory.inv.invSlots[i].itemNo))
+                    AddItem(Inventory.inv.invSlots[i].itemNo, Inventory.inv.invSlots[i].stack, i, allItems[Inventory.inv.invSlots[i].itemNo].checkIfStackable(), null, null);
+                else if (!allItems.ContainsKey(Inventory.inv.invSlots[i].itemNo)) { Dbgl($"Failed Item: {Inventory.inv.invSlots[i].itemNo} |  {Inventory.inv.invSlots[i].stack}"); }
             }
 
             // Get all items in nearby chests
@@ -388,23 +375,24 @@ namespace TR {
 
             if (!nearbyItems.TryGetValue(itemID, out var info)) { info = new ItemInfo(); }
             ItemStack source = new ItemStack();
-            
+
             if (!isStackable) {
                 source.fuel = quantity;
                 quantity = 1;
             }
             info.quantity += quantity;
-                        
+
             source.quantity += quantity;
             source.chest = chest;
             source.slotID = slotID;
             source.inPlayerHouse = isInHouse;
 
-            if (chest == null) { 
-                source.playerInventory = true; 
+            if (chest == null) {
+                source.playerInventory = true;
                 info.sources.Insert(0, source);
                 Dbgl($"Player Inventory -- Slot ID: {slotID} | ItemID: {itemID} | Quantity: {source.quantity}");
-            } else {
+            }
+            else {
                 info.sources.Add(source);
                 Dbgl($"Chest Inventory{chest} -- Slot ID: {slotID} | ItemID: {itemID} | Quantity: {source.quantity} | Chest X: {chest.xPos} | Chest Y: {chest.yPos}");
             }
