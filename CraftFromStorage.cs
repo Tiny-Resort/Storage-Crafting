@@ -25,6 +25,7 @@ using TR;
 // TODO: (POST RELEASE) Add UI Indicator to list # of items from chests vs player's inventory, mark which is first, and where it will be taken from
 // TODO: (POST RELEASE) (OpenChestFromServer?) Make fully functional in multiplayer. It currently doesn't work at all for clients. (Works if you look in chest, but doesn't remove items)
 // TODO: (POST RELEASE) Potentially add functionality in the deep mines (if enough people request)
+// TODO: Figure out why cant do i.inside == house details
 
 // BUG: (POST RELEASE) Removing items while in dialog with Franklyn (or Ted Selly) will cause item duplication (remove items right away, but restore if canceled)
 
@@ -35,7 +36,7 @@ namespace TR {
 
         public const string pluginGuid = "tinyresort.dinkum.craftFromStorage";
         public const string pluginName = "Craft From Storage";
-        public const string pluginVersion = "0.5.0";
+        public const string pluginVersion = "0.5.1";
         public static ManualLogSource StaticLogger;
         public static RealWorldTimeLight realWorld;
         public static ConfigEntry<int> nexusID;
@@ -50,6 +51,7 @@ namespace TR {
         public static HouseDetails currentHouseDetails;
         public static Transform playerHouseTransform;
         public static bool isInside;
+        public static HouseDetails playerHouse;
         
         public static Dictionary<int, InventoryItem> allItems = new Dictionary<int, InventoryItem>();
         public static bool allItemsInitialized;
@@ -314,10 +316,15 @@ namespace TR {
             Collider[] chestsOutside;
             int tempX, tempY;
 
+            for (int i = 0; i < HouseManager.manage.allHouses.Count; i++) {
+                if (HouseManager.manage.allHouses[i].isThePlayersHouse) {
+                    playerHouse = HouseManager.manage.allHouses[i];
+                }
+            }
             Dbgl($"{currentPosition.x} {0} {currentPosition.z}");
             chestsOutside = Physics.OverlapBox(new Vector3(currentPosition.x, -7, currentPosition.z), new Vector3(radius.Value, 40, radius.Value));
             Dbgl($"{currentPosition.x} {-88} {currentPosition.z}");
-            chestsInsideHouse = Physics.OverlapBox(new Vector3(currentPosition.x, -88, currentPosition.z), new Vector3(radius.Value, 2, radius.Value));
+            chestsInsideHouse = Physics.OverlapBox(new Vector3(currentPosition.x, -88, currentPosition.z), new Vector3(radius.Value, 5, radius.Value));
 
             
             for (var i = 0; i < chestsInsideHouse.Length; i++) {
@@ -343,13 +350,15 @@ namespace TR {
                 tempY = chestComponent.myYPos();
 
                 if (chests[k].insideHouse) {
-                    ContainerManager.manage.checkIfEmpty(tempX, tempY, currentHouseDetails);
+                    ContainerManager.manage.checkIfEmpty(tempX, tempY, playerHouse);
                 }
                 else
                     ContainerManager.manage.checkIfEmpty(tempX, tempY, null);
+                
 
-                if (!nearbyChests.Contains(ContainerManager.manage.activeChests.First(i => i.xPos == tempX && i.yPos == tempY && i.inside == chests[k].insideHouse))) {
-                    nearbyChests.Add(ContainerManager.manage.activeChests.First(i => i.xPos == tempX && i.yPos == tempY && i.inside == chests[k].insideHouse));
+                // TODO: Figure out why cant do i.inside == house details
+                if (!nearbyChests.Contains(ContainerManager.manage.activeChests.First(i => i.xPos == tempX && i.yPos == tempY))) {
+                    nearbyChests.Add(ContainerManager.manage.activeChests.First(i => i.xPos == tempX && i.yPos == tempY));
                 }
                 
             }
@@ -367,13 +376,14 @@ namespace TR {
 
             // Get all items in player inventory
             for (var i = 0; i < Inventory.inv.invSlots.Length; i++) {
-                if (Inventory.inv.invSlots[i].itemNo != -1) AddItem(Inventory.inv.invSlots[i].itemNo, Inventory.inv.invSlots[i].stack, i, allItems[Inventory.inv.invSlots[i].itemNo].checkIfStackable(), null);
+                if (Inventory.inv.invSlots[i].itemNo != -1 && allItems.ContainsKey(Inventory.inv.invSlots[i].itemNo)) AddItem(Inventory.inv.invSlots[i].itemNo, Inventory.inv.invSlots[i].stack, i, allItems[Inventory.inv.invSlots[i].itemNo].checkIfStackable(), null);
+                else if (!allItems.ContainsKey(Inventory.inv.invSlots[i].itemNo)) { Dbgl($"Failed Item: {Inventory.inv.invSlots[i].itemNo} |  {Inventory.inv.invSlots[i].stack}");}
             }
 
             // Get all items in nearby chests
             foreach (var chest in nearbyChests) {
                 for (var i = 0; i < chest.itemIds.Length; i++) {
-                    if (chest.itemIds[i] != -1) AddItem(chest.itemIds[i], chest.itemStacks[i], i, allItems[chest.itemIds[i]].checkIfStackable(), chest);
+                    if (chest.itemIds[i] != -1 && allItems.ContainsKey(chest.itemIds[i])) AddItem(chest.itemIds[i], chest.itemStacks[i], i, allItems[chest.itemIds[i]].checkIfStackable(), chest);
                 }
             }
         }
