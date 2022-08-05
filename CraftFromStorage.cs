@@ -3,6 +3,7 @@ using System.IO;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.DirectoryServices.ActiveDirectory;
 using System.Linq;
 using BepInEx;
@@ -21,7 +22,8 @@ using System.Runtime.Serialization.Formatters.Binary;
 using I2.Loc;
 using Mirror.RemoteCalls;
 using Steamworks;
-using TR;
+using TinyResort;
+using Debug = UnityEngine.Debug;
 
 // TODO: (POST RELEASE) Add UI Indicator to list # of items from chests vs player's inventory, mark which is first, and where it will be taken from
 // TODO: (POST RELEASE) (OpenChestFromServer?) Make fully functional in multiplayer. It currently doesn't work at all for clients. (Works if you look in chest, but doesn't remove items)
@@ -134,7 +136,6 @@ namespace TR {
             if (!__instance.isServer)
                 clientInServer = true;
             else { clientInServer = false; }
-
         }
 
         private static void InitializeAllItems() {
@@ -168,7 +169,7 @@ namespace TR {
             // If it can't be crafted, play a sound
             if (!craftable) {
                 SoundManager.manage.play2DSound(SoundManager.manage.buttonCantPressSound);
-                if (wasCraftable) { Tools.Notify("Craft From Storage", "A required item was removed from your storage."); } // TODO: Show notification using TinyTools 
+                if (wasCraftable) { TRTools.TopNotification("Craft From Storage", "A required item was removed from your storage."); }
             }
             else if (showingRecipesFromMenu != CraftingManager.CraftingMenuType.CraftingShop &&
                      showingRecipesFromMenu != CraftingManager.CraftingMenuType.TrapperShop &&
@@ -231,8 +232,8 @@ namespace TR {
                 int invItemId = Inventory.inv.getInvItemId(recipe.itemsInRecipe[i]);
                 int amountToRemove = recipe.stackOfItemsInRecipe[i];
                 var info = GetItem(invItemId);
-                info.sources = info.sources.OrderBy(b => b.fuel).ThenBy(b => b.playerInventory == playerFirst.Value ? 0 : 1).ToList();
 
+                info.sources = info.sources.OrderBy(b => b.fuel).ThenBy(b => b.playerInventory == playerFirst.Value ? 0 : 1).ToList();
                 for (var d = 0; d < info.sources.Count; d++) {
 
                     // Cap out removed quantity at this source's quantity
@@ -397,8 +398,9 @@ namespace TR {
                 Dbgl($"Chest Inventory{chest} -- Slot ID: {slotID} | ItemID: {itemID} | Quantity: {source.quantity} | Chest X: {chest.xPos} | Chest Y: {chest.yPos}");
             }
             nearbyItems[itemID] = info;
-
         }
+        
+        
 
         public static int GetItemCount(int itemID) => nearbyItems.TryGetValue(itemID, out var info) ? info.quantity : 0;
 
@@ -417,6 +419,13 @@ namespace TR {
             public int quantity;
             public int fuel;
             public HouseDetails inPlayerHouse;
+            public Chest chest;
+        }
+
+        public class FranklynItems {
+            public int[] slotID;
+            public int[] stack;
+            public bool playerInventory;
             public Chest chest;
         }
 

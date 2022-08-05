@@ -37,11 +37,26 @@
     <PostBuildEvent>call C:\PreAndPostBuildBats\StorageCrafting\moveSC.bat</PostBuildEvent>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="..\TinyResortTools\Tiny Resort Tools\Patches\NotificationPatch.cs">
+      <Link>Tiny Resort Tools\Patches\NotificationPatch.cs</Link>
+    </Compile>
+    <Compile Include="..\TinyResortTools\Tiny Resort Tools\Patches\RenderMapPatch.cs">
+      <Link>Tiny Resort Tools\Patches\RenderMapPatch.cs</Link>
+    </Compile>
+    <Compile Include="..\TinyResortTools\Tiny Resort Tools\TRDrawing.cs">
+      <Link>Tiny Resort Tools\TRDrawing.cs</Link>
+    </Compile>
+    <Compile Include="..\TinyResortTools\Tiny Resort Tools\TRMap.cs">
+      <Link>Tiny Resort Tools\TRMap.cs</Link>
+    </Compile>
+    <Compile Include="..\TinyResortTools\Tiny Resort Tools\TRPlugin.cs">
+      <Link>Tiny Resort Tools\TRPlugin.cs</Link>
+    </Compile>
+    <Compile Include="..\TinyResortTools\Tiny Resort Tools\TRTools.cs">
+      <Link>Tiny Resort Tools\TRTools.cs</Link>
+    </Compile>
     <Compile Include="CraftFromStorage.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Tiny Resort Tools\ModWindow.cs" />
-    <Compile Include="Tiny Resort Tools\NotificationPatch.cs" />
-    <Compile Include="Tiny Resort Tools\Tools.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="0Harmony, Version=2.9.0.0, Culture=neutral, processorArchitecture=MSIL">
