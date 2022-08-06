@@ -4,7 +4,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
-using System.DirectoryServices.ActiveDirectory;
 using System.Linq;
 using BepInEx;
 using BepInEx.Configuration;
@@ -32,20 +31,19 @@ using Debug = UnityEngine.Debug;
 
 // BUG: (POST RELEASE) Removing items while in dialog with Franklyn (or Ted Selly) will cause item duplication (remove items right away, but restore if canceled)
 
-namespace TR {
+namespace TinyResort {
 
     [BepInPlugin(pluginGuid, pluginName, pluginVersion)]
     public class CraftFromStorage : BaseUnityPlugin {
 
+        public static TRPlugin Plugin;
         public const string pluginGuid = "tinyresort.dinkum.craftFromStorage";
         public const string pluginName = "Craft From Storage";
         public const string pluginVersion = "0.5.4";
-        public static ManualLogSource StaticLogger;
+        
         public static RealWorldTimeLight realWorld;
-        public static ConfigEntry<int> nexusID;
         public static ConfigEntry<int> radius;
         public static ConfigEntry<bool> playerFirst;
-        public static ConfigEntry<bool> isDebug;
         public static Vector3 currentPosition;
         public static List<ChestPlaceable> knownChests = new List<ChestPlaceable>();
         public static List<(Chest chest, HouseDetails house)> nearbyChests = new List<(Chest chest, HouseDetails house)>();
@@ -59,70 +57,27 @@ namespace TR {
         public static Dictionary<int, InventoryItem> allItems = new Dictionary<int, InventoryItem>();
         public static bool allItemsInitialized;
 
-        public static void Dbgl(string str = "") {
-            if (isDebug.Value) { StaticLogger.LogInfo(str); }
-        }
-
         private void Awake() {
 
-            StaticLogger = Logger;
+            Plugin = TRTools.Initialize(this, Logger, 28, pluginGuid, pluginName, pluginVersion);
 
             #region Configuration
-
-            nexusID = Config.Bind<int>("General", "NexusID", 28, "Nexus mod ID for updates");
             radius = Config.Bind<int>("General", "Range", 30, "Increases the range it looks for storage containers by an approximate tile count.");
             playerFirst = Config.Bind<bool>("General", "UsePlayerInventoryFirst", true, "Sets whether it pulls items out of player's inventory first (pulls from chests first if false)");
-            isDebug = Config.Bind<bool>("General", "DebugMode", false, "Turns on debug mode. This makes it laggy when attempting to craft.");
-
-            #endregion
-
-            #region Logging
-
-            ManualLogSource logger = Logger;
-
-            bool flag;
-            BepInExInfoLogInterpolatedStringHandler handler = new BepInExInfoLogInterpolatedStringHandler(18, 1, out flag);
-            if (flag) { handler.AppendLiteral("Plugin " + pluginGuid + " (v" + pluginVersion + ") loaded!"); }
-            logger.LogInfo(handler);
-
             #endregion
 
             #region Patching
-
-            Harmony harmony = new Harmony(pluginGuid);
-
-            MethodInfo fillRecipeIngredients = AccessTools.Method(typeof(CraftingManager), "fillRecipeIngredients");
-            MethodInfo takeItemsForRecipe = AccessTools.Method(typeof(CraftingManager), "takeItemsForRecipe");
-            MethodInfo populateCraftList = AccessTools.Method(typeof(CraftingManager), "populateCraftList");
-            MethodInfo pressCraftButton = AccessTools.Method(typeof(CraftingManager), "pressCraftButton");
-            MethodInfo closeCraftPopup = AccessTools.Method(typeof(CraftingManager), "closeCraftPopup");
-            MethodInfo canBeCrafted = AccessTools.Method(typeof(CraftingManager), "canBeCrafted");
-            MethodInfo craftItem = AccessTools.Method(typeof(CraftingManager), "craftItem");
-            MethodInfo update = AccessTools.Method(typeof(CharInteract), "Update");
-            MethodInfo updateRWTL = AccessTools.Method(typeof(RealWorldTimeLight), "Update");
-
-            MethodInfo fillRecipeIngredientsPatch = AccessTools.Method(typeof(CraftFromStorage), "fillRecipeIngredientsPatch");
-            MethodInfo takeItemsForRecipePatch = AccessTools.Method(typeof(CraftFromStorage), "takeItemsForRecipePatch");
-            MethodInfo populateCraftListPrefix = AccessTools.Method(typeof(CraftFromStorage), "populateCraftListPrefix");
-            MethodInfo pressCraftButtonPrefix = AccessTools.Method(typeof(CraftFromStorage), "pressCraftButtonPrefix");
-            MethodInfo closeCraftPopupPrefix = AccessTools.Method(typeof(CraftFromStorage), "closeCraftPopupPrefix");
-            MethodInfo canBeCraftedPatch = AccessTools.Method(typeof(CraftFromStorage), "canBeCraftedPatch");
-            MethodInfo craftItemPrefix = AccessTools.Method(typeof(CraftFromStorage), "craftItemPrefix");
-            MethodInfo updatePrefix = AccessTools.Method(typeof(CraftFromStorage), "updatePrefix");
-            MethodInfo updateRWTLPrefix = AccessTools.Method(typeof(CraftFromStorage), "updateRWTLPrefix");
-
-            harmony.Patch(fillRecipeIngredients, new HarmonyMethod(fillRecipeIngredientsPatch));
-            harmony.Patch(takeItemsForRecipe, new HarmonyMethod(takeItemsForRecipePatch));
-            harmony.Patch(populateCraftList, new HarmonyMethod(populateCraftListPrefix));
-            harmony.Patch(pressCraftButton, new HarmonyMethod(pressCraftButtonPrefix));
-            harmony.Patch(closeCraftPopup, new HarmonyMethod(closeCraftPopupPrefix));
-            harmony.Patch(canBeCrafted, new HarmonyMethod(canBeCraftedPatch));
-            harmony.Patch(craftItem, new HarmonyMethod(craftItemPrefix));
-            harmony.Patch(update, new HarmonyMethod(updatePrefix));
-            harmony.Patch(updateRWTL, new HarmonyMethod(updateRWTLPrefix));
-
+            Plugin.QuickPatch(typeof(CraftingManager), "fillRecipeIngredients", typeof(CraftFromStorage), "fillRecipeIngredientsPatch");
+            Plugin.QuickPatch(typeof(CraftingManager), "takeItemsForRecipe", typeof(CraftFromStorage), "takeItemsForRecipePatch");
+            Plugin.QuickPatch(typeof(CraftingManager), "populateCraftList", typeof(CraftFromStorage), "populateCraftListPrefix");
+            Plugin.QuickPatch(typeof(CraftingManager), "pressCraftButton", typeof(CraftFromStorage), "pressCraftButtonPrefix");
+            Plugin.QuickPatch(typeof(CraftingManager), "closeCraftPopup", typeof(CraftFromStorage), "closeCraftPopupPrefix");
+            Plugin.QuickPatch(typeof(CraftingManager), "canBeCrafted", typeof(CraftFromStorage), "canBeCraftedPatch");
+            Plugin.QuickPatch(typeof(CraftingManager), "craftItem", typeof(CraftFromStorage), "craftItemPrefix");
+            Plugin.QuickPatch(typeof(CharInteract), "Update", typeof(CraftFromStorage), "updatePrefix");
+            Plugin.QuickPatch(typeof(RealWorldTimeLight), "Update", typeof(CraftFromStorage), "updateRWTLPrefix");
             #endregion
-
+            
         }
 
         public static bool disableMod() {
@@ -296,7 +251,7 @@ namespace TR {
 
             currentPosition = __instance.transform.position;
 
-            if (Input.GetKeyDown(KeyCode.F12)) Dbgl($"Current Position: ({currentPosition.x}, {currentPosition.y}, {currentPosition.z}) | Underground: {RealWorldTimeLight.time.underGround}");
+            if (Input.GetKeyDown(KeyCode.F12)) Plugin.LogToConsole($"Current Position: ({currentPosition.x}, {currentPosition.y}, {currentPosition.z}) | Underground: {RealWorldTimeLight.time.underGround}");
             currentHouseDetails = __instance.insideHouseDetails;
             playerHouseTransform = __instance.playerHouseTransform;
             isInside = __instance.insidePlayerHouse;
@@ -315,9 +270,9 @@ namespace TR {
             for (int i = 0; i < HouseManager.manage.allHouses.Count; i++) {
                 if (HouseManager.manage.allHouses[i].isThePlayersHouse) { playerHouse = HouseManager.manage.allHouses[i]; }
             }
-            Dbgl($"{currentPosition.x} {0} {currentPosition.z}");
+            Plugin.LogToConsole($"{currentPosition.x} {0} {currentPosition.z}");
             chestsOutside = Physics.OverlapBox(new Vector3(currentPosition.x, -7, currentPosition.z), new Vector3(radius.Value * 2, 40, radius.Value * 2));
-            Dbgl($"{currentPosition.x} {-88} {currentPosition.z}");
+            Plugin.LogToConsole($"{currentPosition.x} {-88} {currentPosition.z}");
             chestsInsideHouse = Physics.OverlapBox(new Vector3(currentPosition.x, -88, currentPosition.z), new Vector3(radius.Value * 2, 5, radius.Value * 2));
 
             for (var i = 0; i < chestsInsideHouse.Length; i++) { chests.Add((chestsInsideHouse[i], true)); }
@@ -361,7 +316,7 @@ namespace TR {
             for (var i = 0; i < Inventory.inv.invSlots.Length; i++) {
                 if (Inventory.inv.invSlots[i].itemNo != -1 && allItems.ContainsKey(Inventory.inv.invSlots[i].itemNo))
                     AddItem(Inventory.inv.invSlots[i].itemNo, Inventory.inv.invSlots[i].stack, i, allItems[Inventory.inv.invSlots[i].itemNo].checkIfStackable(), null, null);
-                else if (!allItems.ContainsKey(Inventory.inv.invSlots[i].itemNo)) { Dbgl($"Failed Item: {Inventory.inv.invSlots[i].itemNo} |  {Inventory.inv.invSlots[i].stack}"); }
+                else if (!allItems.ContainsKey(Inventory.inv.invSlots[i].itemNo)) { Plugin.LogToConsole($"Failed Item: {Inventory.inv.invSlots[i].itemNo} |  {Inventory.inv.invSlots[i].stack}"); }
             }
 
             // Get all items in nearby chests
@@ -391,11 +346,11 @@ namespace TR {
             if (chest == null) {
                 source.playerInventory = true;
                 info.sources.Insert(0, source);
-                Dbgl($"Player Inventory -- Slot ID: {slotID} | ItemID: {itemID} | Quantity: {source.quantity}");
+                Plugin.LogToConsole($"Player Inventory -- Slot ID: {slotID} | ItemID: {itemID} | Quantity: {source.quantity}");
             }
             else {
                 info.sources.Add(source);
-                Dbgl($"Chest Inventory{chest} -- Slot ID: {slotID} | ItemID: {itemID} | Quantity: {source.quantity} | Chest X: {chest.xPos} | Chest Y: {chest.yPos}");
+                Plugin.LogToConsole($"Chest Inventory{chest} -- Slot ID: {slotID} | ItemID: {itemID} | Quantity: {source.quantity} | Chest X: {chest.xPos} | Chest Y: {chest.yPos}");
             }
             nearbyItems[itemID] = info;
         }
