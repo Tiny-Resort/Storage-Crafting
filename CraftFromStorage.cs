@@ -3,6 +3,7 @@ using System.IO;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Configuration;
 using System.Diagnostics;
 using System.Linq;
 using BepInEx;
@@ -22,6 +23,7 @@ using I2.Loc;
 using Mirror.RemoteCalls;
 using Steamworks;
 using TinyResort;
+using UnityEngine.AI;
 using Debug = UnityEngine.Debug;
 
 // TODO: (POST RELEASE) Add UI Indicator to list # of items from chests vs player's inventory, mark which is first, and where it will be taken from
@@ -56,7 +58,66 @@ namespace TinyResort {
 
         public static Dictionary<int, InventoryItem> allItems = new Dictionary<int, InventoryItem>();
         public static bool allItemsInitialized;
+        public static int sequence;
 
+        
+        #region Mass Prefix to find info out
+        [HarmonyPrefix]
+        public static void closeChestFromServerPrefix() { Plugin.LogToConsole($"closeChestFromServerPrefix:  {++sequence}"); }
+        [HarmonyPrefix]
+        public static void openChestFromServerPrefix() { Plugin.LogToConsole($"openChestFromServerPrefix:  {++sequence}"); }
+        [HarmonyPrefix]
+        public static void openStashPrefix() { Plugin.LogToConsole($"openStashPrefix:  {++sequence}"); }
+        [HarmonyPrefix]
+        public static void playerCloseChestPrefix() { Plugin.LogToConsole($"playerCloseChestPrefix:  {++sequence}"); }
+        [HarmonyPrefix]
+        public static void playerOpenedChestPrefix() { Plugin.LogToConsole($"playerOpenedChestPrefix:  {++sequence}"); }
+        [HarmonyPrefix]
+        public static void getChestForWindowPrefix() { Plugin.LogToConsole($"getChestForWindowPrefix:  {++sequence}"); }
+        [HarmonyPrefix]
+        public static void changeSlotInChestPrefix() { Plugin.LogToConsole($"changeSlotInChestPrefix:  {++sequence}"); }
+        [HarmonyPrefix]
+        public static void clearWholeContainerPrefix() { Plugin.LogToConsole($"clearWholeContainerPrefix:  {++sequence}"); }
+        [HarmonyPrefix]
+        public static void RpcClearChestPrefix() { Plugin.LogToConsole($"RpcClearChestPrefix:  {++sequence}"); }
+        [HarmonyPrefix]
+        public static void RpcRefreshOpenedChestPrefix() { Plugin.LogToConsole($"RpcRefreshOpenedChestPrefix:  {++sequence}"); }
+        [HarmonyPrefix]
+        public static void TargetOpenChestPrefix() { Plugin.LogToConsole($"TargetOpenChestPrefix:  {++sequence}"); }
+        [HarmonyPrefix]
+        public static void EasySaveChestsPrefix() { Plugin.LogToConsole($"EasySaveChestsPrefix:  {++sequence}"); }
+        [HarmonyPrefix]
+        public static void EasyLoadChestExistsPrefix() { Plugin.LogToConsole($"EasyLoadChestExistsPrefix:  {++sequence}"); }
+        [HarmonyPrefix]
+        public static void EasyLoadChestsPrefix() { Plugin.LogToConsole($"EasyLoadChestsPrefix:  {++sequence}"); }
+        [HarmonyPrefix]
+        public static void saveChestPrefix() { Plugin.LogToConsole($"saveChestPrefix:  {++sequence}"); }
+        [HarmonyPrefix]
+        public static void saveStashesPrefix() { Plugin.LogToConsole($"saveStashesPrefix:  {++sequence}"); }
+        [HarmonyPrefix]
+        public static void loadStashesPrefix() { Plugin.LogToConsole($"loadStashesPrefix:  {++sequence}"); }
+
+        [HarmonyPrefix]
+        public static void InvokeUserCode_RpcClearChestPrefix() { Plugin.LogToConsole($"InvokeUserCode_RpcClearChest:  {++sequence}"); }
+
+        [HarmonyPrefix]
+        public static void InvokeUserCode_RpcRefreshOpenedChestPrefix() { Plugin.LogToConsole($"InvokeUserCode_RpcRefreshOpenedChest:  {++sequence}"); }
+
+        [HarmonyPrefix]
+        public static void InvokeUserCode_TargetOpenChestPrefix() { Plugin.LogToConsole($"InvokeUserCode_TargetOpenChestPrefix:  {++sequence}"); }
+
+        [HarmonyPrefix]
+        public static void UserCode_RpcClearChestPrefix() { Plugin.LogToConsole($"UserCode_RpcClearChest:  {++sequence}"); }
+
+        [HarmonyPrefix]
+        public static void UserCode_RpcRefreshOpenedChestPrefix() { Plugin.LogToConsole($"UserCode_RpcRefreshOpenedChest:  {++sequence}"); }
+
+        [HarmonyPrefix]
+        public static void UserCode_TargetOpenChestPrefix() { Plugin.LogToConsole($"UserCode_TargetOpenChestPrefix:  {++sequence}"); }
+        [HarmonyPrefix]
+        public static void checkIfEmptyPrefix() { Plugin.LogToConsole($"checkIfEmptyPrefix:  {++sequence}"); }
+
+        #endregion
         private void Awake() {
 
             Plugin = TRTools.Initialize(this, Logger, 28, pluginGuid, pluginName, pluginVersion);
@@ -66,6 +127,35 @@ namespace TinyResort {
             playerFirst = Config.Bind<bool>("General", "UsePlayerInventoryFirst", true, "Sets whether it pulls items out of player's inventory first (pulls from chests first if false)");
             #endregion
 
+            #region Temp Patching for Debugging
+            Plugin.QuickPatch(typeof(ContainerManager), "closeChestFromServer", typeof(CraftFromStorage), "closeChestFromServerPrefix");
+            Plugin.QuickPatch(typeof(ContainerManager), "openChestFromServer", typeof(CraftFromStorage), "openChestFromServerPrefix");
+            Plugin.QuickPatch(typeof(ContainerManager), "openStash", typeof(CraftFromStorage), "openStashPrefix");
+            Plugin.QuickPatch(typeof(ContainerManager), "playerCloseChest", typeof(CraftFromStorage), "playerCloseChestPrefix");
+            Plugin.QuickPatch(typeof(ContainerManager), "playerOpenedChest", typeof(CraftFromStorage), "playerOpenedChestPrefix");
+            Plugin.QuickPatch(typeof(ContainerManager), "getChestForWindow", typeof(CraftFromStorage), "getChestForWindowPrefix");
+            Plugin.QuickPatch(typeof(ContainerManager), "changeSlotInChest", typeof(CraftFromStorage), "changeSlotInChestPrefix");
+            Plugin.QuickPatch(typeof(ContainerManager), "openChestFromServer", typeof(CraftFromStorage), "openChestFromServerPrefix");
+            Plugin.QuickPatch(typeof(ContainerManager), "clearWholeContainer", typeof(CraftFromStorage), "clearWholeContainerPrefix");
+            Plugin.QuickPatch(typeof(ContainerManager), "RpcClearChest", typeof(CraftFromStorage), "RpcClearChestPrefix");
+            Plugin.QuickPatch(typeof(ContainerManager), "RpcRefreshOpenedChest", typeof(CraftFromStorage), "RpcRefreshOpenedChestPrefix");
+            Plugin.QuickPatch(typeof(ContainerManager), "TargetOpenChest", typeof(CraftFromStorage), "TargetOpenChestPrefix");
+            Plugin.QuickPatch(typeof(ContainerManager), "EasySaveChests", typeof(CraftFromStorage), "EasySaveChestsPrefix");
+            Plugin.QuickPatch(typeof(ContainerManager), "EasyLoadChestExists", typeof(CraftFromStorage), "EasyLoadChestExistsPrefix");
+            Plugin.QuickPatch(typeof(ContainerManager), "EasyLoadChests", typeof(CraftFromStorage), "EasyLoadChestsPrefix");
+            Plugin.QuickPatch(typeof(ContainerManager), "saveChest", typeof(CraftFromStorage), "saveChestPrefix");
+            Plugin.QuickPatch(typeof(ContainerManager), "saveStashes", typeof(CraftFromStorage), "saveStashesPrefix");
+            Plugin.QuickPatch(typeof(ContainerManager), "loadStashes", typeof(CraftFromStorage), "loadStashesPrefix");
+            Plugin.QuickPatch(typeof(ContainerManager), "InvokeUserCode_TargetOpenChest", typeof(CraftFromStorage), "InvokeUserCode_TargetOpenChestPrefix");
+            Plugin.QuickPatch(typeof(ContainerManager), "InvokeUserCode_RpcClearChest", typeof(CraftFromStorage), "InvokeUserCode_RpcClearChestPrefix");
+            Plugin.QuickPatch(typeof(ContainerManager), "InvokeUserCode_RpcRefreshOpenedChest", typeof(CraftFromStorage), "InvokeUserCode_RpcRefreshOpenedChestPrefix");
+            Plugin.QuickPatch(typeof(ContainerManager), "UserCode_TargetOpenChest", typeof(CraftFromStorage), "UserCode_TargetOpenChestPrefix");
+            Plugin.QuickPatch(typeof(ContainerManager), "UserCode_RpcClearChest", typeof(CraftFromStorage), "UserCode_RpcClearChestPrefix");
+            Plugin.QuickPatch(typeof(ContainerManager), "UserCode_RpcRefreshOpenedChest", typeof(CraftFromStorage), "UserCode_RpcRefreshOpenedChestPrefix");
+            Plugin.QuickPatch(typeof(ContainerManager), "checkIfEmpty", typeof(CraftFromStorage), "checkIfEmptyPrefix");
+
+            #endregion
+            
             #region Patching
             Plugin.QuickPatch(typeof(CraftingManager), "fillRecipeIngredients", typeof(CraftFromStorage), "fillRecipeIngredientsPatch");
             Plugin.QuickPatch(typeof(CraftingManager), "takeItemsForRecipe", typeof(CraftFromStorage), "takeItemsForRecipePatch");
@@ -81,7 +171,7 @@ namespace TinyResort {
         }
 
         public static bool disableMod() {
-            if (clientInServer || RealWorldTimeLight.time.underGround) return true;
+           // if (clientInServer || RealWorldTimeLight.time.underGround) return true;
             return false;
         }
 
@@ -207,10 +297,20 @@ namespace TinyResort {
                             info.sources[d].quantity - removed,
                             info.sources[d].inPlayerHouse
                         );
+                        if (clientInServer) {
+                            NetworkMapSharer.share.localChar.myPickUp.CmdChangeOneInChest(
+                                info.sources[d].chest.xPos,
+                                info.sources[d].chest.yPos,
+                                info.sources[d].slotID,
+                                removed >= info.sources[d].quantity ? -1 : invItemId,
+                                info.sources[d].quantity - removed
+                            );
+                        }
                     }
                     amountToRemove -= removed;
                     if (amountToRemove <= 0) break;
                 }
+                
             }
 
             ParseAllItems();
@@ -251,7 +351,7 @@ namespace TinyResort {
 
             currentPosition = __instance.transform.position;
 
-            if (Input.GetKeyDown(KeyCode.F12)) Plugin.LogToConsole($"Current Position: ({currentPosition.x}, {currentPosition.y}, {currentPosition.z}) | Underground: {RealWorldTimeLight.time.underGround}");
+           // if (Input.GetKeyDown(KeyCode.F12)) Plugin.LogToConsole($"Current Position: ({currentPosition.x}, {currentPosition.y}, {currentPosition.z}) | Underground: {RealWorldTimeLight.time.underGround}");
             currentHouseDetails = __instance.insideHouseDetails;
             playerHouseTransform = __instance.playerHouseTransform;
             isInside = __instance.insidePlayerHouse;
@@ -270,9 +370,7 @@ namespace TinyResort {
             for (int i = 0; i < HouseManager.manage.allHouses.Count; i++) {
                 if (HouseManager.manage.allHouses[i].isThePlayersHouse) { playerHouse = HouseManager.manage.allHouses[i]; }
             }
-            Plugin.LogToConsole($"{currentPosition.x} {0} {currentPosition.z}");
             chestsOutside = Physics.OverlapBox(new Vector3(currentPosition.x, -7, currentPosition.z), new Vector3(radius.Value * 2, 40, radius.Value * 2));
-            Plugin.LogToConsole($"{currentPosition.x} {-88} {currentPosition.z}");
             chestsInsideHouse = Physics.OverlapBox(new Vector3(currentPosition.x, -88, currentPosition.z), new Vector3(radius.Value * 2, 5, radius.Value * 2));
 
             for (var i = 0; i < chestsInsideHouse.Length; i++) { chests.Add((chestsInsideHouse[i], true)); }
@@ -280,7 +378,9 @@ namespace TinyResort {
             for (var k = 0; k < chests.Count; k++) {
 
                 ChestPlaceable chestComponent = chests[k].hit.GetComponentInParent<ChestPlaceable>();
-                if (chestComponent == null) continue;
+                if (chestComponent == null) {
+                    continue;
+                }
                 if (!knownChests.Contains(chestComponent)) { knownChests.Add(chestComponent); }
 
                 var id = chestComponent.gameObject.GetInstanceID();
@@ -288,23 +388,29 @@ namespace TinyResort {
                 var name = chestComponent.gameObject.name;
                 var tag = chestComponent.gameObject.tag;
 
-                // Dbgl($"ID: {id} | Layer: {layer} | Name: {name} | Tag: {tag}");
+                //Plugin.LogToConsole($"ID: {id} | Layer: {layer} | Name: {name} | Tag: {tag}");
 
                 tempX = chestComponent.myXPos();
                 tempY = chestComponent.myYPos();
 
-                if (chests[k].insideHouse) { ContainerManager.manage.checkIfEmpty(tempX, tempY, playerHouse); }
-                else
-                    ContainerManager.manage.checkIfEmpty(tempX, tempY, null);
+                var clientOrServer = !clientInServer ? ContainerManager.manage.connectionToClient : ContainerManager.manage.connectionToServer;
+                HouseDetails tempDetails = chests[k].insideHouse ? playerHouse : null;
+                ContainerManager.manage.checkIfEmpty(tempX, tempY, tempDetails);
+                /*Chest chestSaveOrCreateNewOne2 = ContainerManager.manage.getChestSaveOrCreateNewOne(tempX, tempY, tempDetails);
+                if (!ContainerManager.manage.activeChests.Contains(chestSaveOrCreateNewOne2)) ContainerManager.manage.activeChests.Add(chestSaveOrCreateNewOne2);
+                ContainerManager.manage.playerOpenedChest(tempX, tempY, tempDetails);
+                ContainerManager.manage.TargetOpenChest(clientOrServer, tempX, tempY, chestSaveOrCreateNewOne2.itemIds, chestSaveOrCreateNewOne2.itemStacks);*/
 
                 nearbyChests.Add((ContainerManager.manage.activeChests.First(i => i.xPos == tempX && i.yPos == tempY && i.inside == chests[k].insideHouse), playerHouse));
                 nearbyChests = nearbyChests.Distinct().ToList();
+                Plugin.LogToConsole($"Size of nearbyChests: {nearbyChests.Count}");
             }
         }
 
+
         // Fills a dictionary with info about the items in player inventory and nearby chests
         public static void ParseAllItems() {
-
+            
             if (disableMod()) return;
             if (!allItemsInitialized) { InitializeAllItems(); }
 
@@ -316,13 +422,19 @@ namespace TinyResort {
             for (var i = 0; i < Inventory.inv.invSlots.Length; i++) {
                 if (Inventory.inv.invSlots[i].itemNo != -1 && allItems.ContainsKey(Inventory.inv.invSlots[i].itemNo))
                     AddItem(Inventory.inv.invSlots[i].itemNo, Inventory.inv.invSlots[i].stack, i, allItems[Inventory.inv.invSlots[i].itemNo].checkIfStackable(), null, null);
-                else if (!allItems.ContainsKey(Inventory.inv.invSlots[i].itemNo)) { Plugin.LogToConsole($"Failed Item: {Inventory.inv.invSlots[i].itemNo} |  {Inventory.inv.invSlots[i].stack}"); }
+                else if (!allItems.ContainsKey(Inventory.inv.invSlots[i].itemNo)) { }
+                //Plugin.LogToConsole($"Failed Item: {Inventory.inv.invSlots[i].itemNo} |  {Inventory.inv.invSlots[i].stack}"); }
             }
 
             // Get all items in nearby chests
+            Plugin.LogToConsole($"Size of ChestInfo: {nearbyChests.Count}");
             foreach (var ChestInfo in nearbyChests) {
                 for (var i = 0; i < ChestInfo.chest.itemIds.Length; i++) {
-                    if (ChestInfo.chest.itemIds[i] != -1 && allItems.ContainsKey(ChestInfo.chest.itemIds[i])) AddItem(ChestInfo.chest.itemIds[i], ChestInfo.chest.itemStacks[i], i, allItems[ChestInfo.chest.itemIds[i]].checkIfStackable(), ChestInfo.house, ChestInfo.chest);
+                    Plugin.LogToConsole($"Add Item: {ChestInfo.chest.itemIds[i]} |  {ChestInfo.chest.itemStacks[i]}");
+                    if (ChestInfo.chest.itemIds[i] != -1 && allItems.ContainsKey(ChestInfo.chest.itemIds[i])) {
+                        AddItem(ChestInfo.chest.itemIds[i], ChestInfo.chest.itemStacks[i], i, allItems[ChestInfo.chest.itemIds[i]].checkIfStackable(), ChestInfo.house, ChestInfo.chest);
+                        Plugin.LogToConsole($"Add Item: {ChestInfo.chest.itemIds[i]} |  {ChestInfo.chest.itemStacks[i]}");
+                    }
                 }
             }
         }
@@ -346,16 +458,14 @@ namespace TinyResort {
             if (chest == null) {
                 source.playerInventory = true;
                 info.sources.Insert(0, source);
-                Plugin.LogToConsole($"Player Inventory -- Slot ID: {slotID} | ItemID: {itemID} | Quantity: {source.quantity}");
+               // Plugin.LogToConsole($"Player Inventory -- Slot ID: {slotID} | ItemID: {itemID} | Quantity: {source.quantity}");
             }
             else {
                 info.sources.Add(source);
-                Plugin.LogToConsole($"Chest Inventory{chest} -- Slot ID: {slotID} | ItemID: {itemID} | Quantity: {source.quantity} | Chest X: {chest.xPos} | Chest Y: {chest.yPos}");
+              //  Plugin.LogToConsole($"Chest Inventory{chest} -- Slot ID: {slotID} | ItemID: {itemID} | Quantity: {source.quantity} | Chest X: {chest.xPos} | Chest Y: {chest.yPos}");
             }
             nearbyItems[itemID] = info;
         }
-        
-        
 
         public static int GetItemCount(int itemID) => nearbyItems.TryGetValue(itemID, out var info) ? info.quantity : 0;
 
@@ -385,5 +495,4 @@ namespace TinyResort {
         }
 
     }
-
 }

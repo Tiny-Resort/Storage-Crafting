@@ -21,6 +21,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -40,9 +41,12 @@
     <Reference Include="0Harmony">
       <HintPath>..\DinkumInstallFolder\BepInEx\core\0Harmony.dll</HintPath>
     </Reference>
-    <Reference Include="Assembly-CSharp">
-      <HintPath>..\DinkumInstallFolder\Dinkum_Data\Managed\Assembly-CSharp.dll</HintPath>
+    <Reference Include="Assembly-CSharp_publicized">
+      <HintPath>..\DinkumInstallFolder\Dinkum_Data\Managed\publicized_assemblies\Assembly-CSharp_publicized.dll</HintPath>
     </Reference>
+<!--    <Reference Include="Assembly-CSharp">
+      <HintPath>..\DinkumInstallFolder\Dinkum_Data\Managed\Assembly-CSharp.dll</HintPath>
+    </Reference>-->
     <Reference Include="Assembly-CSharp-firstpass">
       <HintPath>..\DinkumInstallFolder\Dinkum_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
     </Reference>
