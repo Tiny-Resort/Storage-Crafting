@@ -59,6 +59,8 @@ namespace TinyResort {
         public static Dictionary<int, InventoryItem> allItems = new Dictionary<int, InventoryItem>();
         public static bool allItemsInitialized;
         public static int sequence;
+        public static CharPickUp charPickUp;
+        public static CharInteract charInteract;
 
         
         #region Mass Prefix to find info out
@@ -166,7 +168,11 @@ namespace TinyResort {
             Plugin.QuickPatch(typeof(CraftingManager), "craftItem", typeof(CraftFromStorage), "craftItemPrefix");
             Plugin.QuickPatch(typeof(CharInteract), "Update", typeof(CraftFromStorage), "updatePrefix");
             Plugin.QuickPatch(typeof(RealWorldTimeLight), "Update", typeof(CraftFromStorage), "updateRWTLPrefix");
+            Plugin.QuickPatch(typeof(CharPickUp), "Update", typeof(CraftFromStorage), "UpdateCharPickUpPrefix");
+            Plugin.QuickPatch(typeof(CharInteract), "Update", typeof(CraftFromStorage), "UpdateCharInteractPrefix");
+
             #endregion
+
             
         }
 
@@ -358,6 +364,14 @@ namespace TinyResort {
 
         }
 
+        [HarmonyPrefix]
+        public static void UpdateCharPickUpPrefix(CharPickUp __instance) {
+            charPickUp = __instance;
+        }
+
+        [HarmonyPrefix]
+        public static void UpdateCharInteractPrefix(CharInteract __instance) { charInteract = __instance; } 
+
         public static void FindNearbyChests() {
             if (disableMod()) return;
             nearbyChests.Clear();
@@ -395,13 +409,12 @@ namespace TinyResort {
 
                 var clientOrServer = !clientInServer ? ContainerManager.manage.connectionToClient : ContainerManager.manage.connectionToServer;
                 HouseDetails tempDetails = chests[k].insideHouse ? playerHouse : null;
-                ContainerManager.manage.checkIfEmpty(tempX, tempY, tempDetails);
-                /*Chest chestSaveOrCreateNewOne2 = ContainerManager.manage.getChestSaveOrCreateNewOne(tempX, tempY, tempDetails);
-                if (!ContainerManager.manage.activeChests.Contains(chestSaveOrCreateNewOne2)) ContainerManager.manage.activeChests.Add(chestSaveOrCreateNewOne2);
-                ContainerManager.manage.playerOpenedChest(tempX, tempY, tempDetails);
-                ContainerManager.manage.TargetOpenChest(clientOrServer, tempX, tempY, chestSaveOrCreateNewOne2.itemIds, chestSaveOrCreateNewOne2.itemStacks);*/
 
-                nearbyChests.Add((ContainerManager.manage.activeChests.First(i => i.xPos == tempX && i.yPos == tempY && i.inside == chests[k].insideHouse), playerHouse));
+                ContainerManager.manage.checkIfEmpty(tempX, tempY, tempDetails);
+                // This seems to "kind of" work. If I click craft button, it adds a bunch of items. I don't know if it is accurate, and I don't know how to fix the
+                // Window from staying open. 
+               // NetworkMapSharer.share.localChar.myPickUp.CmdOpenChest(tempX, tempY);
+                nearbyChests.Add((ContainerManager.manage.activeChests.First(i => i.xPos == tempX && i.yPos == tempY && i.inside == chests[k].insideHouse), tempDetails));
                 nearbyChests = nearbyChests.Distinct().ToList();
                 Plugin.LogToConsole($"Size of nearbyChests: {nearbyChests.Count}");
             }
@@ -420,8 +433,9 @@ namespace TinyResort {
 
             // Get all items in player inventory
             for (var i = 0; i < Inventory.inv.invSlots.Length; i++) {
-                if (Inventory.inv.invSlots[i].itemNo != -1 && allItems.ContainsKey(Inventory.inv.invSlots[i].itemNo))
+                if (Inventory.inv.invSlots[i].itemNo != -1 && allItems.ContainsKey(Inventory.inv.invSlots[i].itemNo)) {
                     AddItem(Inventory.inv.invSlots[i].itemNo, Inventory.inv.invSlots[i].stack, i, allItems[Inventory.inv.invSlots[i].itemNo].checkIfStackable(), null, null);
+                }
                 else if (!allItems.ContainsKey(Inventory.inv.invSlots[i].itemNo)) { }
                 //Plugin.LogToConsole($"Failed Item: {Inventory.inv.invSlots[i].itemNo} |  {Inventory.inv.invSlots[i].stack}"); }
             }
