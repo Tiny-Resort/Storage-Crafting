@@ -19,6 +19,7 @@ using System.Runtime.Remoting.Messaging;
 using BepInEx.Unity.Bootstrap;
 using UnityEngine.InputSystem;
 using System.Runtime.Serialization.Formatters.Binary;
+using BepInEx.Unity;
 using I2.Loc;
 using Mirror.RemoteCalls;
 using Steamworks;
@@ -33,13 +34,18 @@ using Debug = UnityEngine.Debug;
 
 // BUG: (POST RELEASE) Removing items while in dialog with Franklyn (or Ted Selly) will cause item duplication (remove items right away, but restore if canceled)
 
+// Find nearby chests -> after finished running cmd open chest on ALL Chests dont due parse -> 
+// -> wait until all chests have sent back info (how) (cap time)
+// -> Parse all items on chests we have info about
+
+
 namespace TinyResort {
 
     [BepInPlugin(pluginGuid, pluginName, pluginVersion)]
     public class CraftFromStorage : BaseUnityPlugin {
 
         public static TRPlugin Plugin;
-        public const string pluginGuid = "tinyresort.dinkum.craftFromStorage";
+        public const string pluginGuid = "games.tinyresort.craftFromStorage";
         public const string pluginName = "Craft From Storage";
         public const string pluginVersion = "0.5.4";
         
@@ -61,6 +67,9 @@ namespace TinyResort {
         public static int sequence;
         public static CharPickUp charPickUp;
         public static CharInteract charInteract;
+        public static bool findingNearbyChests;
+        public Dictionary<string, PluginInfo> pluginInfos;
+        public static bool duplicateModDetected;
 
         
         #region Mass Prefix to find info out
@@ -170,14 +179,24 @@ namespace TinyResort {
             Plugin.QuickPatch(typeof(RealWorldTimeLight), "Update", typeof(CraftFromStorage), "updateRWTLPrefix");
             Plugin.QuickPatch(typeof(CharPickUp), "Update", typeof(CraftFromStorage), "UpdateCharPickUpPrefix");
             Plugin.QuickPatch(typeof(CharInteract), "Update", typeof(CraftFromStorage), "UpdateCharInteractPrefix");
+            Plugin.QuickPatch(typeof(ChestWindow), "openChestInWindow", typeof(CraftFromStorage), "openChestInWindowPrefix");
 
             #endregion
 
+            pluginInfos = UnityChainloader.Instance.Plugins;
+            foreach (KeyValuePair<string, PluginInfo> kvp in pluginInfos) {
+                string pluginName = kvp.Value.Metadata.Name;
+                string guid = kvp.Value.Metadata.GUID;
+                if (guid == "tinyresort.dinkum.craftFromStorage") {
+                    Plugin.LogToConsole($"Old version loaded");
+                    duplicateModDetected = true;
+                }
+            }
             
         }
 
         public static bool disableMod() {
-           // if (clientInServer || RealWorldTimeLight.time.underGround) return true;
+           // if (clientInServer || RealWorldTimeLight.time.underGround || duplicateModDetected) return true;
             return false;
         }
 
@@ -364,6 +383,11 @@ namespace TinyResort {
 
         }
 
+        public static bool openChestInWindowPrefix() {
+            Plugin.LogToConsole($"Inside OPENCHESTINWINDOW AHHHHH | {findingNearbyChests}");
+            return !findingNearbyChests;
+        }
+        
         [HarmonyPrefix]
         public static void UpdateCharPickUpPrefix(CharPickUp __instance) {
             charPickUp = __instance;
@@ -406,28 +430,29 @@ namespace TinyResort {
 
                 tempX = chestComponent.myXPos();
                 tempY = chestComponent.myYPos();
-
+    
+                // TODO: Make this get the correct house
                 var clientOrServer = !clientInServer ? ContainerManager.manage.connectionToClient : ContainerManager.manage.connectionToServer;
                 HouseDetails tempDetails = chests[k].insideHouse ? playerHouse : null;
 
+                // basically, do a for loop on CmdOpenChest on all chests then yield until we have info (half second), then add chests to nearbychest list
                 ContainerManager.manage.checkIfEmpty(tempX, tempY, tempDetails);
-                // This seems to "kind of" work. If I click craft button, it adds a bunch of items. I don't know if it is accurate, and I don't know how to fix the
-                // Window from staying open. 
-               // NetworkMapSharer.share.localChar.myPickUp.CmdOpenChest(tempX, tempY);
+                //NetworkMapSharer.share.localChar.myPickUp.CmdOpenChest(tempX, tempY);
+
+                // make a for loop
                 nearbyChests.Add((ContainerManager.manage.activeChests.First(i => i.xPos == tempX && i.yPos == tempY && i.inside == chests[k].insideHouse), tempDetails));
                 nearbyChests = nearbyChests.Distinct().ToList();
-                Plugin.LogToConsole($"Size of nearbyChests: {nearbyChests.Count}");
             }
         }
-
-
+        
         // Fills a dictionary with info about the items in player inventory and nearby chests
         public static void ParseAllItems() {
-            
+
             if (disableMod()) return;
             if (!allItemsInitialized) { InitializeAllItems(); }
 
             // Recreate known chests and clear items
+            findingNearbyChests = true;
             FindNearbyChests();
             nearbyItems.Clear();
 
@@ -451,6 +476,8 @@ namespace TinyResort {
                     }
                 }
             }
+            findingNearbyChests = false;
+
         }
 
         public static void AddItem(int itemID, int quantity, int slotID, bool isStackable, HouseDetails isInHouse, Chest chest) {
