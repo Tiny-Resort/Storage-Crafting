@@ -27,27 +27,21 @@ using TinyResort;
 using UnityEngine.AI;
 using Debug = UnityEngine.Debug;
 
-// TODO: (POST RELEASE) Add UI Indicator to list # of items from chests vs player's inventory, mark which is first, and where it will be taken from
-// TODO: (POST RELEASE) (OpenChestFromServer?) Make fully functional in multiplayer. It currently doesn't work at all for clients. (Works if you look in chest, but doesn't remove items)
-// TODO: (POST RELEASE) Potentially add functionality in the deep mines (if enough people request)
-// TODO: Figure out why cant do i.inside == house details
-
-// BUG: (POST RELEASE) Removing items while in dialog with Franklyn (or Ted Selly) will cause item duplication (remove items right away, but restore if canceled)
-
-// Find nearby chests -> after finished running cmd open chest on ALL Chests dont due parse -> 
-// -> wait until all chests have sent back info (how) (cap time)
-// -> Parse all items on chests we have info about
-
+// TODO: Add UI Indicator to list # of items from chests vs player's inventory, mark which is first, and where it will be taken from
+// BUG: Removing items while in dialog with Franklyn (or Ted Selly) will cause item duplication (remove items right away, but restore if canceled)
+// Known Limitations: Fletch's Tent isn't detected. This is due to Fletch's tent being on a different y-level, so we aren't hitting it with the collider. No plan to implement. 
 
 namespace TinyResort {
 
     [BepInPlugin(pluginGuid, pluginName, pluginVersion)]
     public class CraftFromStorage : BaseUnityPlugin {
 
+        private static CraftFromStorage instance;
+        
         public static TRPlugin Plugin;
-        public const string pluginGuid = "games.tinyresort.craftFromStorage";
+        public const string pluginGuid = "TinyResort.CraftFromStorage";
         public const string pluginName = "Craft From Storage";
-        public const string pluginVersion = "0.5.4";
+        public const string pluginVersion = "0.8.0";
         
         public static RealWorldTimeLight realWorld;
         public static ConfigEntry<int> radius;
@@ -62,109 +56,27 @@ namespace TinyResort {
         public static bool isInside;
         public static HouseDetails playerHouse;
 
+        public static bool modDisabled => RealWorldTimeLight.time.underGround;
+
         public static Dictionary<int, InventoryItem> allItems = new Dictionary<int, InventoryItem>();
         public static bool allItemsInitialized;
         public static int sequence;
         public static CharPickUp charPickUp;
         public static CharInteract charInteract;
-        public static bool findingNearbyChests;
         public Dictionary<string, PluginInfo> pluginInfos;
-        public static bool duplicateModDetected;
 
-        
-        #region Mass Prefix to find info out
-        [HarmonyPrefix]
-        public static void closeChestFromServerPrefix() { Plugin.LogToConsole($"closeChestFromServerPrefix:  {++sequence}"); }
-        [HarmonyPrefix]
-        public static void openChestFromServerPrefix() { Plugin.LogToConsole($"openChestFromServerPrefix:  {++sequence}"); }
-        [HarmonyPrefix]
-        public static void openStashPrefix() { Plugin.LogToConsole($"openStashPrefix:  {++sequence}"); }
-        [HarmonyPrefix]
-        public static void playerCloseChestPrefix() { Plugin.LogToConsole($"playerCloseChestPrefix:  {++sequence}"); }
-        [HarmonyPrefix]
-        public static void playerOpenedChestPrefix() { Plugin.LogToConsole($"playerOpenedChestPrefix:  {++sequence}"); }
-        [HarmonyPrefix]
-        public static void getChestForWindowPrefix() { Plugin.LogToConsole($"getChestForWindowPrefix:  {++sequence}"); }
-        [HarmonyPrefix]
-        public static void changeSlotInChestPrefix() { Plugin.LogToConsole($"changeSlotInChestPrefix:  {++sequence}"); }
-        [HarmonyPrefix]
-        public static void clearWholeContainerPrefix() { Plugin.LogToConsole($"clearWholeContainerPrefix:  {++sequence}"); }
-        [HarmonyPrefix]
-        public static void RpcClearChestPrefix() { Plugin.LogToConsole($"RpcClearChestPrefix:  {++sequence}"); }
-        [HarmonyPrefix]
-        public static void RpcRefreshOpenedChestPrefix() { Plugin.LogToConsole($"RpcRefreshOpenedChestPrefix:  {++sequence}"); }
-        [HarmonyPrefix]
-        public static void TargetOpenChestPrefix() { Plugin.LogToConsole($"TargetOpenChestPrefix:  {++sequence}"); }
-        [HarmonyPrefix]
-        public static void EasySaveChestsPrefix() { Plugin.LogToConsole($"EasySaveChestsPrefix:  {++sequence}"); }
-        [HarmonyPrefix]
-        public static void EasyLoadChestExistsPrefix() { Plugin.LogToConsole($"EasyLoadChestExistsPrefix:  {++sequence}"); }
-        [HarmonyPrefix]
-        public static void EasyLoadChestsPrefix() { Plugin.LogToConsole($"EasyLoadChestsPrefix:  {++sequence}"); }
-        [HarmonyPrefix]
-        public static void saveChestPrefix() { Plugin.LogToConsole($"saveChestPrefix:  {++sequence}"); }
-        [HarmonyPrefix]
-        public static void saveStashesPrefix() { Plugin.LogToConsole($"saveStashesPrefix:  {++sequence}"); }
-        [HarmonyPrefix]
-        public static void loadStashesPrefix() { Plugin.LogToConsole($"loadStashesPrefix:  {++sequence}"); }
+        private static bool openingCraftMenu;
+        private static bool findingNearbyChests;
+        private static Dictionary<(int xPos, int yPos), HouseDetails> tempChests = new Dictionary<(int xPos, int yPos), HouseDetails>();
 
-        [HarmonyPrefix]
-        public static void InvokeUserCode_RpcClearChestPrefix() { Plugin.LogToConsole($"InvokeUserCode_RpcClearChest:  {++sequence}"); }
-
-        [HarmonyPrefix]
-        public static void InvokeUserCode_RpcRefreshOpenedChestPrefix() { Plugin.LogToConsole($"InvokeUserCode_RpcRefreshOpenedChest:  {++sequence}"); }
-
-        [HarmonyPrefix]
-        public static void InvokeUserCode_TargetOpenChestPrefix() { Plugin.LogToConsole($"InvokeUserCode_TargetOpenChestPrefix:  {++sequence}"); }
-
-        [HarmonyPrefix]
-        public static void UserCode_RpcClearChestPrefix() { Plugin.LogToConsole($"UserCode_RpcClearChest:  {++sequence}"); }
-
-        [HarmonyPrefix]
-        public static void UserCode_RpcRefreshOpenedChestPrefix() { Plugin.LogToConsole($"UserCode_RpcRefreshOpenedChest:  {++sequence}"); }
-
-        [HarmonyPrefix]
-        public static void UserCode_TargetOpenChestPrefix() { Plugin.LogToConsole($"UserCode_TargetOpenChestPrefix:  {++sequence}"); }
-        [HarmonyPrefix]
-        public static void checkIfEmptyPrefix() { Plugin.LogToConsole($"checkIfEmptyPrefix:  {++sequence}"); }
-
-        #endregion
         private void Awake() {
 
             Plugin = TRTools.Initialize(this, Logger, 28, pluginGuid, pluginName, pluginVersion);
+            instance = this;
 
             #region Configuration
             radius = Config.Bind<int>("General", "Range", 30, "Increases the range it looks for storage containers by an approximate tile count.");
             playerFirst = Config.Bind<bool>("General", "UsePlayerInventoryFirst", true, "Sets whether it pulls items out of player's inventory first (pulls from chests first if false)");
-            #endregion
-
-            #region Temp Patching for Debugging
-            Plugin.QuickPatch(typeof(ContainerManager), "closeChestFromServer", typeof(CraftFromStorage), "closeChestFromServerPrefix");
-            Plugin.QuickPatch(typeof(ContainerManager), "openChestFromServer", typeof(CraftFromStorage), "openChestFromServerPrefix");
-            Plugin.QuickPatch(typeof(ContainerManager), "openStash", typeof(CraftFromStorage), "openStashPrefix");
-            Plugin.QuickPatch(typeof(ContainerManager), "playerCloseChest", typeof(CraftFromStorage), "playerCloseChestPrefix");
-            Plugin.QuickPatch(typeof(ContainerManager), "playerOpenedChest", typeof(CraftFromStorage), "playerOpenedChestPrefix");
-            Plugin.QuickPatch(typeof(ContainerManager), "getChestForWindow", typeof(CraftFromStorage), "getChestForWindowPrefix");
-            Plugin.QuickPatch(typeof(ContainerManager), "changeSlotInChest", typeof(CraftFromStorage), "changeSlotInChestPrefix");
-            Plugin.QuickPatch(typeof(ContainerManager), "openChestFromServer", typeof(CraftFromStorage), "openChestFromServerPrefix");
-            Plugin.QuickPatch(typeof(ContainerManager), "clearWholeContainer", typeof(CraftFromStorage), "clearWholeContainerPrefix");
-            Plugin.QuickPatch(typeof(ContainerManager), "RpcClearChest", typeof(CraftFromStorage), "RpcClearChestPrefix");
-            Plugin.QuickPatch(typeof(ContainerManager), "RpcRefreshOpenedChest", typeof(CraftFromStorage), "RpcRefreshOpenedChestPrefix");
-            Plugin.QuickPatch(typeof(ContainerManager), "TargetOpenChest", typeof(CraftFromStorage), "TargetOpenChestPrefix");
-            Plugin.QuickPatch(typeof(ContainerManager), "EasySaveChests", typeof(CraftFromStorage), "EasySaveChestsPrefix");
-            Plugin.QuickPatch(typeof(ContainerManager), "EasyLoadChestExists", typeof(CraftFromStorage), "EasyLoadChestExistsPrefix");
-            Plugin.QuickPatch(typeof(ContainerManager), "EasyLoadChests", typeof(CraftFromStorage), "EasyLoadChestsPrefix");
-            Plugin.QuickPatch(typeof(ContainerManager), "saveChest", typeof(CraftFromStorage), "saveChestPrefix");
-            Plugin.QuickPatch(typeof(ContainerManager), "saveStashes", typeof(CraftFromStorage), "saveStashesPrefix");
-            Plugin.QuickPatch(typeof(ContainerManager), "loadStashes", typeof(CraftFromStorage), "loadStashesPrefix");
-            Plugin.QuickPatch(typeof(ContainerManager), "InvokeUserCode_TargetOpenChest", typeof(CraftFromStorage), "InvokeUserCode_TargetOpenChestPrefix");
-            Plugin.QuickPatch(typeof(ContainerManager), "InvokeUserCode_RpcClearChest", typeof(CraftFromStorage), "InvokeUserCode_RpcClearChestPrefix");
-            Plugin.QuickPatch(typeof(ContainerManager), "InvokeUserCode_RpcRefreshOpenedChest", typeof(CraftFromStorage), "InvokeUserCode_RpcRefreshOpenedChestPrefix");
-            Plugin.QuickPatch(typeof(ContainerManager), "UserCode_TargetOpenChest", typeof(CraftFromStorage), "UserCode_TargetOpenChestPrefix");
-            Plugin.QuickPatch(typeof(ContainerManager), "UserCode_RpcClearChest", typeof(CraftFromStorage), "UserCode_RpcClearChestPrefix");
-            Plugin.QuickPatch(typeof(ContainerManager), "UserCode_RpcRefreshOpenedChest", typeof(CraftFromStorage), "UserCode_RpcRefreshOpenedChestPrefix");
-            Plugin.QuickPatch(typeof(ContainerManager), "checkIfEmpty", typeof(CraftFromStorage), "checkIfEmptyPrefix");
-
             #endregion
             
             #region Patching
@@ -173,43 +85,22 @@ namespace TinyResort {
             Plugin.QuickPatch(typeof(CraftingManager), "populateCraftList", typeof(CraftFromStorage), "populateCraftListPrefix");
             Plugin.QuickPatch(typeof(CraftingManager), "pressCraftButton", typeof(CraftFromStorage), "pressCraftButtonPrefix");
             Plugin.QuickPatch(typeof(CraftingManager), "closeCraftPopup", typeof(CraftFromStorage), "closeCraftPopupPrefix");
+            Plugin.QuickPatch(typeof(CraftingManager), "openCloseCraftMenu", typeof(CraftFromStorage), "openCloseCraftMenuPrefix");
             Plugin.QuickPatch(typeof(CraftingManager), "canBeCrafted", typeof(CraftFromStorage), "canBeCraftedPatch");
             Plugin.QuickPatch(typeof(CraftingManager), "craftItem", typeof(CraftFromStorage), "craftItemPrefix");
-            Plugin.QuickPatch(typeof(CharInteract), "Update", typeof(CraftFromStorage), "updatePrefix");
             Plugin.QuickPatch(typeof(RealWorldTimeLight), "Update", typeof(CraftFromStorage), "updateRWTLPrefix");
             Plugin.QuickPatch(typeof(CharPickUp), "Update", typeof(CraftFromStorage), "UpdateCharPickUpPrefix");
             Plugin.QuickPatch(typeof(CharInteract), "Update", typeof(CraftFromStorage), "UpdateCharInteractPrefix");
             Plugin.QuickPatch(typeof(ChestWindow), "openChestInWindow", typeof(CraftFromStorage), "openChestInWindowPrefix");
-
-            #endregion
-
-            pluginInfos = UnityChainloader.Instance.Plugins;
-            foreach (KeyValuePair<string, PluginInfo> kvp in pluginInfos) {
-                string pluginName = kvp.Value.Metadata.Name;
-                string guid = kvp.Value.Metadata.GUID;
-                if (guid == "tinyresort.dinkum.craftFromStorage") {
-                    Plugin.LogToConsole($"Old version loaded");
-                    duplicateModDetected = true;
-                }
-            }
-            
+            Plugin.QuickPatch(typeof(ContainerManager), "UserCode_TargetOpenChest", typeof(CraftFromStorage), null, "UserCode_TargetOpenChestPostfix");
+            #endregion  
         }
 
-        public static bool disableMod() {
-           // if (clientInServer || RealWorldTimeLight.time.underGround || duplicateModDetected) return true;
-            return false;
-        }
-
-        [HarmonyPrefix]
-        private static void updateRWTLPrefix(RealWorldTimeLight __instance) {
-            // Clients in a multiplayer world should not be able to craft from storage
-            if (!__instance.isServer)
-                clientInServer = true;
-            else { clientInServer = false; }
-        }
+        // Clients in a multiplayer world should not be able to craft from storage
+        [HarmonyPrefix] public static void updateRWTLPrefix(RealWorldTimeLight __instance) { clientInServer = !__instance.isServer; }
 
         private static void InitializeAllItems() {
-            if (disableMod()) return;
+            if (modDisabled) return;
             allItemsInitialized = true;
             foreach (var item in Inventory.inv.allItems) {
                 var id = item.getItemId();
@@ -220,13 +111,15 @@ namespace TinyResort {
 
         [HarmonyPrefix]
         public static void craftItemPrefix(CraftingManager __instance, int currentlyCrafting, int ___currentVariation) {
-            if (disableMod()) return;
+            if (modDisabled) return;
+            // TODO: When crafting an item, it needs to wait until all items are updated before allowing the craft
+            // TODO: After crafting the item update the number
             ParseAllItems();
         }
 
         [HarmonyPrefix]
         public static bool pressCraftButtonPrefix(CraftingManager __instance, int ___currentVariation) {
-            if (disableMod()) return true;
+            if (modDisabled) return true;
 
             // For checking if something was changed about the recipe items after opening recipe
             var wasCraftable = __instance.CraftButton.GetComponent<UnityEngine.UI.Image>().color == UIAnimationManager.manage.yesColor;
@@ -259,7 +152,7 @@ namespace TinyResort {
 
         [HarmonyPrefix]
         public static void closeCraftPopupPrefix(CraftingManager __instance, CraftingManager.CraftingMenuType ___menuTypeOpen) {
-            if (disableMod()) return;
+            if (modDisabled) return;
 
             if (!__instance.craftWindowPopup.activeInHierarchy) return;
             ParseAllItems();
@@ -268,7 +161,7 @@ namespace TinyResort {
         }
 
         public static bool canBeCraftedPatch(CraftingManager __instance, int itemId, int ___currentVariation, ref bool __result) {
-            if (disableMod()) return true;
+            if (modDisabled) return true;
 
             bool result = true;
             int num = Inventory.inv.allItems[itemId].value * 2;
@@ -291,7 +184,7 @@ namespace TinyResort {
         }
 
         public static bool takeItemsForRecipePatch(CraftingManager __instance, int currentlyCrafting, int ___currentVariation) {
-            if (disableMod()) return true;
+            if (modDisabled) return true;
             var recipe = ___currentVariation == -1 || Inventory.inv.allItems[currentlyCrafting].craftable.altRecipes.Length == 0 ? Inventory.inv.allItems[currentlyCrafting].craftable : Inventory.inv.allItems[currentlyCrafting].craftable.altRecipes[___currentVariation];
 
             for (int i = 0; i < HouseManager.manage.allHouses.Count; i++) {
@@ -338,25 +231,37 @@ namespace TinyResort {
                 
             }
 
-            ParseAllItems();
+            //ParseAllItems();
 
             return false;
         }
 
         public static void removeFromPlayerInventory(int itemID, int slotID, int amountRemaining) {
-            if (disableMod()) return;
+            if (modDisabled) return;
             Inventory.inv.invSlots[slotID].stack = amountRemaining;
             Inventory.inv.invSlots[slotID].updateSlotContentsAndRefresh(amountRemaining == 0 ? -1 : itemID, amountRemaining);
         }
 
+        [HarmonyPrefix] public static void openCloseCraftMenuPrefix(bool isMenuOpen) { if (isMenuOpen) openingCraftMenu = true; }
+
         [HarmonyPrefix]
-        public static void populateCraftListPrefix() {
-            if (disableMod()) return;
+        public static bool populateCraftListPrefix() {
+            if (modDisabled || !openingCraftMenu) return true;
+            instance.StopAllCoroutines();
+            instance.StartCoroutine(populateCraftListRoutine());
+            openingCraftMenu = false;
+            return false;
+        }
+
+        private static IEnumerator populateCraftListRoutine() {
+            Plugin.LogToConsole("Populating Craft List");
             ParseAllItems();
+            yield return new WaitUntil(() => !findingNearbyChests);
+            CraftingManager.manage.populateCraftList();
         }
 
         public static bool fillRecipeIngredientsPatch(CraftingManager __instance, int recipeNo, int variation) {
-            if (disableMod()) return true;
+            if (modDisabled) return true;
             var recipe = variation == -1 || Inventory.inv.allItems[recipeNo].craftable.altRecipes.Length == 0 ? Inventory.inv.allItems[recipeNo].craftable : Inventory.inv.allItems[recipeNo].craftable.altRecipes[variation];
             for (int i = 0; i < recipe.itemsInRecipe.Length; i++) {
                 int invItemId = Inventory.inv.getInvItemId(recipe.itemsInRecipe[i]);
@@ -370,19 +275,6 @@ namespace TinyResort {
             return false;
         }
 
-        [HarmonyPrefix]
-        public static void updatePrefix(CharInteract __instance) {
-            if (disableMod() || !__instance.isLocalPlayer) return;
-
-            currentPosition = __instance.transform.position;
-
-           // if (Input.GetKeyDown(KeyCode.F12)) Plugin.LogToConsole($"Current Position: ({currentPosition.x}, {currentPosition.y}, {currentPosition.z}) | Underground: {RealWorldTimeLight.time.underGround}");
-            currentHouseDetails = __instance.insideHouseDetails;
-            playerHouseTransform = __instance.playerHouseTransform;
-            isInside = __instance.insidePlayerHouse;
-
-        }
-
         public static bool openChestInWindowPrefix() {
             Plugin.LogToConsole($"Inside OPENCHESTINWINDOW AHHHHH | {findingNearbyChests}");
             return !findingNearbyChests;
@@ -394,13 +286,14 @@ namespace TinyResort {
         }
 
         [HarmonyPrefix]
-        public static void UpdateCharInteractPrefix(CharInteract __instance) { charInteract = __instance; } 
+        public static void UpdateCharInteractPrefix(CharInteract __instance) { charInteract = __instance; }
 
-        public static void FindNearbyChests() {
-            if (disableMod()) return;
+
+        public static void FindNearbyChests() { 
+            
             nearbyChests.Clear();
 
-            var chests = new List<(Collider hit, bool insideHouse)>();
+            var chests = new List<(ChestPlaceable chest, bool insideHouse)>();
             Collider[] chestsInsideHouse;
             Collider[] chestsOutside;
             int tempX, tempY;
@@ -408,52 +301,88 @@ namespace TinyResort {
             for (int i = 0; i < HouseManager.manage.allHouses.Count; i++) {
                 if (HouseManager.manage.allHouses[i].isThePlayersHouse) { playerHouse = HouseManager.manage.allHouses[i]; }
             }
-            chestsOutside = Physics.OverlapBox(new Vector3(currentPosition.x, -7, currentPosition.z), new Vector3(radius.Value * 2, 40, radius.Value * 2));
-            chestsInsideHouse = Physics.OverlapBox(new Vector3(currentPosition.x, -88, currentPosition.z), new Vector3(radius.Value * 2, 5, radius.Value * 2));
 
-            for (var i = 0; i < chestsInsideHouse.Length; i++) { chests.Add((chestsInsideHouse[i], true)); }
-            for (var j = 0; j < chestsOutside.Length; j++) { chests.Add((chestsOutside[j], false)); }
+            currentPosition = NetworkMapSharer.share.localChar.myInteract.transform.position;
+            currentHouseDetails = NetworkMapSharer.share.localChar.myInteract.insideHouseDetails;
+            playerHouseTransform = NetworkMapSharer.share.localChar.myInteract.playerHouseTransform;
+            isInside = NetworkMapSharer.share.localChar.myInteract.insidePlayerHouse;
+            
+            chestsOutside = Physics.OverlapBox(new Vector3(currentPosition.x, -7, currentPosition.z), new Vector3(radius.Value * 2, 20, radius.Value * 2), Quaternion.identity, LayerMask.GetMask(LayerMask.LayerToName(15)));
+            chestsInsideHouse = Physics.OverlapBox(new Vector3(currentPosition.x, -88, currentPosition.z), new Vector3(radius.Value * 2, 5, radius.Value * 2), Quaternion.identity, LayerMask.GetMask(LayerMask.LayerToName(15)));
+
+            for (var i = 0; i < chestsInsideHouse.Length; i++) {
+                ChestPlaceable chestComponent = chestsInsideHouse[i].GetComponentInParent<ChestPlaceable>();
+                if (chestComponent == null) continue; 
+                Plugin.LogToConsole("FOUND INSIDE HOUSE?: " + chestsInsideHouse[i].transform.position);
+                Plugin.LogToConsole("COLLLIDER INFO: " + chestsInsideHouse[i].GetComponentInChildren<Collider>().bounds);
+                chests.Add((chestComponent, true)); 
+                
+            }
+
+            for (var j = 0; j < chestsOutside.Length; j++) {
+                ChestPlaceable chestComponent = chestsOutside[j].GetComponentInParent<ChestPlaceable>();
+                if (chestComponent == null) continue; 
+                Plugin.LogToConsole("FOUND OUTSIDE HOUSE?: " + chestsOutside[j].transform.position);
+                Plugin.LogToConsole("COLLLIDER INFO: " + chestsOutside[j].GetComponentInChildren<Collider>().bounds);
+                chests.Add((chestComponent, false)); 
+                
+            }
+            
             for (var k = 0; k < chests.Count; k++) {
-
-                ChestPlaceable chestComponent = chests[k].hit.GetComponentInParent<ChestPlaceable>();
-                if (chestComponent == null) {
-                    continue;
-                }
-                if (!knownChests.Contains(chestComponent)) { knownChests.Add(chestComponent); }
-
-                var id = chestComponent.gameObject.GetInstanceID();
-                var layer = chestComponent.gameObject.layer;
-                var name = chestComponent.gameObject.name;
-                var tag = chestComponent.gameObject.tag;
 
                 //Plugin.LogToConsole($"ID: {id} | Layer: {layer} | Name: {name} | Tag: {tag}");
 
-                tempX = chestComponent.myXPos();
-                tempY = chestComponent.myYPos();
+                tempX = chests[k].chest.myXPos();
+                tempY = chests[k].chest.myYPos();
     
                 // TODO: Make this get the correct house
-                var clientOrServer = !clientInServer ? ContainerManager.manage.connectionToClient : ContainerManager.manage.connectionToServer;
-                HouseDetails tempDetails = chests[k].insideHouse ? playerHouse : null;
+                HouseDetails house = chests[k].insideHouse ? playerHouse : null;
 
-                // basically, do a for loop on CmdOpenChest on all chests then yield until we have info (half second), then add chests to nearbychest list
-                ContainerManager.manage.checkIfEmpty(tempX, tempY, tempDetails);
-                //NetworkMapSharer.share.localChar.myPickUp.CmdOpenChest(tempX, tempY);
-
-                // make a for loop
-                nearbyChests.Add((ContainerManager.manage.activeChests.First(i => i.xPos == tempX && i.yPos == tempY && i.inside == chests[k].insideHouse), tempDetails));
-                nearbyChests = nearbyChests.Distinct().ToList();
+                if (clientInServer) {
+                    if (tempChests.ContainsKey((tempX, tempY))) { Plugin.LogToConsole("CHEST AT " + tempX + ", " + tempY + " already in dictionary"); }
+                    tempChests[(tempX, tempY)] = house;
+                    NetworkMapSharer.share.localChar.myPickUp.CmdOpenChest(tempX, tempY);
+                    Plugin.LogToConsole("ADDING CHEST FROM " + tempX + ", " + tempY + ", " + (house != null));
+                }
+                
+                else {
+                    Plugin.LogToConsole("ADDING CHEST ON SERVER");
+                    ContainerManager.manage.checkIfEmpty(tempX, tempY, house);
+                    AddChest(tempX, tempY, house);
+                }
+                
             }
+            
+        }
+
+        private static void AddChest(int xPos, int yPos, HouseDetails house) {
+            Plugin.LogToConsole("Looking for chest " + xPos + ", " + yPos + ", " + (house != null));
+            nearbyChests.Add((ContainerManager.manage.activeChests.First(i => i.xPos == xPos && i.yPos == yPos), house));
+            nearbyChests = nearbyChests.Distinct().ToList();
         }
         
+        [HarmonyPostfix]
+        public static void UserCode_TargetOpenChestPostfix(ContainerManager __instance, int xPos, int yPos, int[] itemIds, int[] itemStack) {
+            Plugin.LogToConsole($"UserCode_TargetOpenChestPrefix:  {++sequence}"); 
+            // TODO: Get proper house details
+            if (tempChests.TryGetValue((xPos, yPos), out var house)) {
+                Plugin.LogToConsole("CHEST OPENED FROM SERVER: " + xPos + ", " + yPos);
+                tempChests.Remove((xPos, yPos));
+                Plugin.LogToConsole("LATEST CHEST: " + ContainerManager.manage.activeChests[ContainerManager.manage.activeChests.Count - 1].xPos + ", " + 
+                                    ContainerManager.manage.activeChests[ContainerManager.manage.activeChests.Count - 1].yPos);
+                AddChest(xPos, yPos, house);
+            }
+        }
         // Fills a dictionary with info about the items in player inventory and nearby chests
-        public static void ParseAllItems() {
-
-            if (disableMod()) return;
+        public static void ParseAllItems() { if (!modDisabled) instance.StartCoroutine(ParseAllItemsRoutine()); }
+        public static IEnumerator ParseAllItemsRoutine() {
+            
             if (!allItemsInitialized) { InitializeAllItems(); }
 
             // Recreate known chests and clear items
             findingNearbyChests = true;
             FindNearbyChests();
+            if (clientInServer) { yield return new WaitUntil(() => tempChests.Count <= 0); }
             nearbyItems.Clear();
 
             // Get all items in player inventory
@@ -476,6 +405,7 @@ namespace TinyResort {
                     }
                 }
             }
+            
             findingNearbyChests = false;
 
         }

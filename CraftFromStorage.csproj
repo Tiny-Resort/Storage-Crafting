@@ -7,8 +7,8 @@
     <ProjectGuid>{1E849F00-09AF-444A-9BCD-B7938E76082D}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>games.tinyresort.CraftFromStorage</RootNamespace>
-    <AssemblyName>games.tinyresort.CraftFromStorage</AssemblyName>
+    <RootNamespace>TinyResort</RootNamespace>
+    <AssemblyName>TinyResort.CraftFromStorage</AssemblyName>
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
