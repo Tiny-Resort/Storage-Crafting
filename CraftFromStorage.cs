@@ -43,32 +43,27 @@ namespace TinyResort {
         public const string pluginName = "Craft From Storage";
         public const string pluginVersion = "0.8.0";
         
-        public static RealWorldTimeLight realWorld;
         public static ConfigEntry<int> radius;
         public static ConfigEntry<bool> playerFirst;
+        
         public static Vector3 currentPosition;
-        public static List<ChestPlaceable> knownChests = new List<ChestPlaceable>();
+        
         public static List<(Chest chest, HouseDetails house)> nearbyChests = new List<(Chest chest, HouseDetails house)>();
-        public static bool usableTable;
-        public static bool clientInServer;
-        public static HouseDetails currentHouseDetails;
-        public static Transform playerHouseTransform;
-        public static bool isInside;
+        private static Dictionary<(int xPos, int yPos), HouseDetails> tempChests = new Dictionary<(int xPos, int yPos), HouseDetails>();
+        public static Dictionary<int, InventoryItem> allItems = new Dictionary<int, InventoryItem>();
+
         public static HouseDetails playerHouse;
+
+        public static CraftingManager CraftingInstance;
+
+        public static bool allItemsInitialized;
+        public static bool clientInServer;
+        private static bool openingCraftMenu;
+        private static bool findingNearbyChests;
 
         public static bool modDisabled => RealWorldTimeLight.time.underGround;
 
-        public static Dictionary<int, InventoryItem> allItems = new Dictionary<int, InventoryItem>();
-        public static bool allItemsInitialized;
-        public static int sequence;
-        public static CharPickUp charPickUp;
-        public static CharInteract charInteract;
-        public Dictionary<string, PluginInfo> pluginInfos;
-
-        private static bool openingCraftMenu;
-        private static bool findingNearbyChests;
-        private static Dictionary<(int xPos, int yPos), HouseDetails> tempChests = new Dictionary<(int xPos, int yPos), HouseDetails>();
-
+        
         private void Awake() {
 
             Plugin = TRTools.Initialize(this, Logger, 28, pluginGuid, pluginName, pluginVersion);
@@ -87,17 +82,22 @@ namespace TinyResort {
             Plugin.QuickPatch(typeof(CraftingManager), "closeCraftPopup", typeof(CraftFromStorage), "closeCraftPopupPrefix");
             Plugin.QuickPatch(typeof(CraftingManager), "openCloseCraftMenu", typeof(CraftFromStorage), "openCloseCraftMenuPrefix");
             Plugin.QuickPatch(typeof(CraftingManager), "canBeCrafted", typeof(CraftFromStorage), "canBeCraftedPatch");
-            Plugin.QuickPatch(typeof(CraftingManager), "craftItem", typeof(CraftFromStorage), "craftItemPrefix");
+            Plugin.QuickPatch(typeof(CraftingManager), "craftItem", typeof(CraftFromStorage), "craftItemPrefix", "craftItemPostfix");
             Plugin.QuickPatch(typeof(RealWorldTimeLight), "Update", typeof(CraftFromStorage), "updateRWTLPrefix");
-            Plugin.QuickPatch(typeof(CharPickUp), "Update", typeof(CraftFromStorage), "UpdateCharPickUpPrefix");
-            Plugin.QuickPatch(typeof(CharInteract), "Update", typeof(CraftFromStorage), "UpdateCharInteractPrefix");
             Plugin.QuickPatch(typeof(ChestWindow), "openChestInWindow", typeof(CraftFromStorage), "openChestInWindowPrefix");
             Plugin.QuickPatch(typeof(ContainerManager), "UserCode_TargetOpenChest", typeof(CraftFromStorage), null, "UserCode_TargetOpenChestPostfix");
             #endregion  
         }
 
         // Clients in a multiplayer world should not be able to craft from storage
-        [HarmonyPrefix] public static void updateRWTLPrefix(RealWorldTimeLight __instance) { clientInServer = !__instance.isServer; }
+        [HarmonyPrefix] public static void updateRWTLPrefix(RealWorldTimeLight __instance) {
+            clientInServer = !__instance.isServer;
+            if (Input.GetKeyDown(KeyCode.F12)) {
+                ParseAllItems();
+                instance.StopCoroutine(populateCraftListRoutine());
+                instance.StartCoroutine(populateCraftListRoutine());
+            }
+        }
 
         private static void InitializeAllItems() {
             if (modDisabled) return;
@@ -115,6 +115,14 @@ namespace TinyResort {
             // TODO: When crafting an item, it needs to wait until all items are updated before allowing the craft
             // TODO: After crafting the item update the number
             ParseAllItems();
+        }
+
+        // This will update the screen immediately after crafting an item. 
+        [HarmonyPostfix]
+        public static void craftItemPostfix(CraftingManager __instance, int currentlyCrafting, int ___currentVariation) {
+            if (modDisabled) return;
+            ParseAllItems();
+            __instance.showRecipeForItem(currentlyCrafting, ___currentVariation, false);
         }
 
         [HarmonyPrefix]
@@ -145,9 +153,7 @@ namespace TinyResort {
                 // TODO: Take items out of inventory before crafting, then somehow stop it from taking them out later 
                 __instance.StartCoroutine(__instance.startCrafting(__instance.craftableItemId));
             }
-
             return false;
-
         }
 
         [HarmonyPrefix]
@@ -245,7 +251,7 @@ namespace TinyResort {
         [HarmonyPrefix] public static void openCloseCraftMenuPrefix(bool isMenuOpen) { if (isMenuOpen) openingCraftMenu = true; }
 
         [HarmonyPrefix]
-        public static bool populateCraftListPrefix() {
+        public static bool populateCraftListPrefix(CraftingManager __instance) {
             if (modDisabled || !openingCraftMenu) return true;
             instance.StopAllCoroutines();
             instance.StartCoroutine(populateCraftListRoutine());
@@ -279,15 +285,6 @@ namespace TinyResort {
             Plugin.LogToConsole($"Inside OPENCHESTINWINDOW AHHHHH | {findingNearbyChests}");
             return !findingNearbyChests;
         }
-        
-        [HarmonyPrefix]
-        public static void UpdateCharPickUpPrefix(CharPickUp __instance) {
-            charPickUp = __instance;
-        }
-
-        [HarmonyPrefix]
-        public static void UpdateCharInteractPrefix(CharInteract __instance) { charInteract = __instance; }
-
 
         public static void FindNearbyChests() { 
             
@@ -303,9 +300,6 @@ namespace TinyResort {
             }
 
             currentPosition = NetworkMapSharer.share.localChar.myInteract.transform.position;
-            currentHouseDetails = NetworkMapSharer.share.localChar.myInteract.insideHouseDetails;
-            playerHouseTransform = NetworkMapSharer.share.localChar.myInteract.playerHouseTransform;
-            isInside = NetworkMapSharer.share.localChar.myInteract.insidePlayerHouse;
             
             chestsOutside = Physics.OverlapBox(new Vector3(currentPosition.x, -7, currentPosition.z), new Vector3(radius.Value * 2, 20, radius.Value * 2), Quaternion.identity, LayerMask.GetMask(LayerMask.LayerToName(15)));
             chestsInsideHouse = Physics.OverlapBox(new Vector3(currentPosition.x, -88, currentPosition.z), new Vector3(radius.Value * 2, 5, radius.Value * 2), Quaternion.identity, LayerMask.GetMask(LayerMask.LayerToName(15)));
@@ -329,13 +323,11 @@ namespace TinyResort {
             }
             
             for (var k = 0; k < chests.Count; k++) {
-
-                //Plugin.LogToConsole($"ID: {id} | Layer: {layer} | Name: {name} | Tag: {tag}");
-
                 tempX = chests[k].chest.myXPos();
                 tempY = chests[k].chest.myYPos();
     
-                // TODO: Make this get the correct house
+                // TODO: Make this get the correct house --- I think playerHouse gets the current players house and not the hosts, it works for me, but you didnt see them...
+
                 HouseDetails house = chests[k].insideHouse ? playerHouse : null;
 
                 if (clientInServer) {
@@ -350,9 +342,7 @@ namespace TinyResort {
                     ContainerManager.manage.checkIfEmpty(tempX, tempY, house);
                     AddChest(tempX, tempY, house);
                 }
-                
             }
-            
         }
 
         private static void AddChest(int xPos, int yPos, HouseDetails house) {
@@ -363,7 +353,6 @@ namespace TinyResort {
         
         [HarmonyPostfix]
         public static void UserCode_TargetOpenChestPostfix(ContainerManager __instance, int xPos, int yPos, int[] itemIds, int[] itemStack) {
-            Plugin.LogToConsole($"UserCode_TargetOpenChestPrefix:  {++sequence}"); 
             // TODO: Get proper house details
             if (tempChests.TryGetValue((xPos, yPos), out var house)) {
                 Plugin.LogToConsole("CHEST OPENED FROM SERVER: " + xPos + ", " + yPos);
@@ -375,6 +364,7 @@ namespace TinyResort {
         }
         // Fills a dictionary with info about the items in player inventory and nearby chests
         public static void ParseAllItems() { if (!modDisabled) instance.StartCoroutine(ParseAllItemsRoutine()); }
+        
         public static IEnumerator ParseAllItemsRoutine() {
             
             if (!allItemsInitialized) { InitializeAllItems(); }
