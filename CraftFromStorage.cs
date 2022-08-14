@@ -92,11 +92,6 @@ namespace TinyResort {
         // Clients in a multiplayer world should not be able to craft from storage
         [HarmonyPrefix] public static void updateRWTLPrefix(RealWorldTimeLight __instance) {
             clientInServer = !__instance.isServer;
-            if (Input.GetKeyDown(KeyCode.F12)) {
-                ParseAllItems();
-                instance.StopCoroutine(populateCraftListRoutine());
-                instance.StartCoroutine(populateCraftListRoutine());
-            }
         }
 
         private static void InitializeAllItems() {
@@ -251,19 +246,19 @@ namespace TinyResort {
         [HarmonyPrefix] public static void openCloseCraftMenuPrefix(bool isMenuOpen) { if (isMenuOpen) openingCraftMenu = true; }
 
         [HarmonyPrefix]
-        public static bool populateCraftListPrefix(CraftingManager __instance) {
+        public static bool populateCraftListPrefix(CraftingManager __instance, CraftingManager.CraftingMenuType listType) {
             if (modDisabled || !openingCraftMenu) return true;
             instance.StopAllCoroutines();
-            instance.StartCoroutine(populateCraftListRoutine());
+            instance.StartCoroutine(populateCraftListRoutine(listType));
             openingCraftMenu = false;
             return false;
         }
 
-        private static IEnumerator populateCraftListRoutine() {
+        private static IEnumerator populateCraftListRoutine(CraftingManager.CraftingMenuType listType) {
             Plugin.LogToConsole("Populating Craft List");
             ParseAllItems();
             yield return new WaitUntil(() => !findingNearbyChests);
-            CraftingManager.manage.populateCraftList();
+            CraftingManager.manage.populateCraftList(listType);
         }
 
         public static bool fillRecipeIngredientsPatch(CraftingManager __instance, int recipeNo, int variation) {
