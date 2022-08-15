@@ -23,7 +23,7 @@ namespace TinyResort {
         private static CraftFromStorage instance;
         
         public static TRPlugin Plugin;
-        public const string pluginGuid = "tinyresort.dinkum.CraftFromStorage";
+        public const string pluginGuid = "tinyresort.dinkum.craftFromStorage";
         public const string pluginName = "Craft From Storage";
         public const string pluginVersion = "0.8.0";
 
@@ -101,7 +101,7 @@ namespace TinyResort {
                 tryingCraftItem = false;
                 if (!__instance.canBeCrafted(__instance.craftableItemId)) {
                     SoundManager.manage.play2DSound(SoundManager.manage.buttonCantPressSound);
-                    TRTools.TopNotification("Craft From Storage", "CANCELED CRAFT: A required item was removed from storage.");
+                    TRTools.TopNotification("Craft From Storage", "CANCELED: A required item was removed from storage.");
                     //Plugin.LogToConsole(++sequence + " FAILED TO CRAFT ITEM");
                     runCraftItemPostfix = false;
                     __instance.showRecipeForItem(currentlyCrafting, ___currentVariation, false);
@@ -150,7 +150,7 @@ namespace TinyResort {
             // If it can't be crafted, play a sound
             if (!craftable) {
                 SoundManager.manage.play2DSound(SoundManager.manage.buttonCantPressSound);
-                if (wasCraftable) { TRTools.TopNotification("Craft From Storage", "A required item was removed from your storage."); }
+                if (wasCraftable) { TRTools.TopNotification("Craft From Storage", "CANCELED: A required item was removed from storage."); }
             }
             else if (showingRecipesFromMenu != CraftingManager.CraftingMenuType.CraftingShop &&
                      showingRecipesFromMenu != CraftingManager.CraftingMenuType.TrapperShop &&
