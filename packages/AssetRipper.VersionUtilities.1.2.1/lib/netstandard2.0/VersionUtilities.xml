@@ -1,0 +1,795 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>AssetRipper.VersionUtilities</name>
+    </assembly>
+    <members>
+        <member name="T:AssetRipper.VersionUtilities.CompactUnityVersion24">
+            <summary>
+            A compact value type for efficiently storing Unity versions inside 24 bits
+            </summary>
+        </member>
+        <member name="F:AssetRipper.VersionUtilities.CompactUnityVersion24.m_MajorMinorByte">
+            <summary>
+            5 bits for the major, 
+            3 bits for the minor
+            </summary>
+        </member>
+        <member name="F:AssetRipper.VersionUtilities.CompactUnityVersion24.m_BuildTypeShort">
+            <summary>
+            7 bits for the build, 
+            3 bits for the type, 
+            6 bits for the type number
+            </summary>
+        </member>
+        <member name="F:AssetRipper.VersionUtilities.CompactUnityVersion24.MajorMaxValue">
+            <summary>
+            2042
+            </summary>
+        </member>
+        <member name="P:AssetRipper.VersionUtilities.CompactUnityVersion24.MajorRaw">
+            <summary>
+            5 bits
+            </summary>
+        </member>
+        <member name="P:AssetRipper.VersionUtilities.CompactUnityVersion24.Major">
+            <summary>
+            The first number in a Unity version string. 5 bits.
+            Valid values inclusive: 0 - 5, 2017 - 2042
+            </summary>
+        </member>
+        <member name="P:AssetRipper.VersionUtilities.CompactUnityVersion24.Minor">
+            <summary>
+            The second number in a Unity version string. 3 bits
+            </summary>
+        </member>
+        <member name="P:AssetRipper.VersionUtilities.CompactUnityVersion24.Build">
+            <summary>
+            The third number in a Unity version string. 7 bits
+            </summary>
+        </member>
+        <member name="P:AssetRipper.VersionUtilities.CompactUnityVersion24.Type">
+            <summary>
+            The letter in a Unity version string. 3 bits
+            </summary>
+        </member>
+        <member name="P:AssetRipper.VersionUtilities.CompactUnityVersion24.TypeNumber">
+            <summary>
+            The last number in a Unity version string. 6 bits
+            </summary>
+        </member>
+        <member name="P:AssetRipper.VersionUtilities.CompactUnityVersion24.MinVersion">
+            <summary>
+            The minimum value this type can have
+            </summary>
+        </member>
+        <member name="P:AssetRipper.VersionUtilities.CompactUnityVersion24.MaxVersion">
+            <summary>
+            The maximum value this type can have
+            </summary>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.CompactUnityVersion24.#ctor(System.UInt16)">
+            <summary>
+            Construct a new Unity version
+            </summary>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.CompactUnityVersion24.#ctor(System.UInt16,System.Byte)">
+            <summary>
+            Construct a new Unity version
+            </summary>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.CompactUnityVersion24.#ctor(System.UInt16,System.Byte,System.Byte)">
+            <summary>
+            Construct a new Unity version
+            </summary>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.CompactUnityVersion24.#ctor(System.UInt16,System.Byte,System.Byte,AssetRipper.VersionUtilities.UnityVersionType)">
+            <summary>
+            Construct a new Unity version
+            </summary>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.CompactUnityVersion24.#ctor(System.UInt16,System.Byte,System.Byte,AssetRipper.VersionUtilities.UnityVersionType,System.Byte)">
+            <summary>
+            Construct a new Unity version
+            </summary>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.CompactUnityVersion24.GetBits(System.Byte@,System.UInt16@)">
+            <summary>
+            Converts this to its binary representation
+            </summary>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.CompactUnityVersion24.FromBits(System.Byte,System.UInt16)">
+            <summary>
+            Converts a binary representation into its respective version
+            </summary>
+            <param name="majorMinorByte"></param>
+            <param name="buildTypeShort"></param>
+            <returns>A new Unity version with the cooresponding bits</returns>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.CompactUnityVersion24.ToString">
+            <summary>
+            Serialize the version as a string
+            </summary>
+            <returns>A new string like 2019.4.3f1</returns>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.CompactUnityVersion24.CompareTo(System.Object)">
+            <summary>
+            Compare to another object
+            </summary>
+            <param name="obj">Another object</param>
+            <returns>
+            1 if this is larger or the other is not a Unity version<br/>
+            -1 if this is smaller<br/>
+            0 if equal
+            </returns>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.CompactUnityVersion24.CompareTo(AssetRipper.VersionUtilities.CompactUnityVersion24)">
+            <summary>
+            Compare two Unity versions
+            </summary>
+            <param name="other">Another Unity version</param>
+            <returns>
+            1 if this is larger<br/>
+            -1 if this is smaller<br/>
+            0 if equal
+            </returns>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.CompactUnityVersion24.Equals(System.Object)">
+            <summary>
+            Check equality with another object
+            </summary>
+            <param name="obj">Another object</param>
+            <returns>True if they're equal; false otherwise</returns>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.CompactUnityVersion24.Equals(AssetRipper.VersionUtilities.CompactUnityVersion24)">
+            <summary>
+            Check equality with another Unity version
+            </summary>
+            <param name="other">Another Unity version</param>
+            <returns>True if they're equal; false otherwise</returns>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.CompactUnityVersion24.GetHashCode">
+            <inheritdoc/>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.CompactUnityVersion24.op_Implicit(AssetRipper.VersionUtilities.CompactUnityVersion24)~AssetRipper.VersionUtilities.UnityVersion">
+            <summary>
+            Expand to 64 bits
+            </summary>
+            <param name="version">The version to convert</param>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.CompactUnityVersion24.op_Implicit(AssetRipper.VersionUtilities.CompactUnityVersion24)~AssetRipper.VersionUtilities.CompactUnityVersion32">
+            <summary>
+            Expand to 32 bits
+            </summary>
+            <param name="version">The version to convert</param>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.CompactUnityVersion24.op_Explicit(AssetRipper.VersionUtilities.UnityVersion)~AssetRipper.VersionUtilities.CompactUnityVersion24">
+            <summary>
+            Compact to 24 bits
+            </summary>
+            <param name="version"></param>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.CompactUnityVersion24.op_Explicit(AssetRipper.VersionUtilities.CompactUnityVersion32)~AssetRipper.VersionUtilities.CompactUnityVersion24">
+            <summary>
+            Compact to 24 bits
+            </summary>
+            <param name="version"></param>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.CompactUnityVersion24.op_Equality(AssetRipper.VersionUtilities.CompactUnityVersion24,AssetRipper.VersionUtilities.CompactUnityVersion24)">
+            <summary>
+            Equality operator
+            </summary>
+            <param name="left">The left Unity version</param>
+            <param name="right">The right Unity version</param>
+            <returns></returns>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.CompactUnityVersion24.op_Inequality(AssetRipper.VersionUtilities.CompactUnityVersion24,AssetRipper.VersionUtilities.CompactUnityVersion24)">
+            <summary>
+            Inequality operator
+            </summary>
+            <param name="left">The left Unity version</param>
+            <param name="right">The right Unity version</param>
+            <returns></returns>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.CompactUnityVersion24.op_GreaterThan(AssetRipper.VersionUtilities.CompactUnityVersion24,AssetRipper.VersionUtilities.CompactUnityVersion24)">
+            <summary>
+            Greater than
+            </summary>
+            <param name="left">The left Unity version</param>
+            <param name="right">The right Unity version</param>
+            <returns></returns>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.CompactUnityVersion24.op_GreaterThanOrEqual(AssetRipper.VersionUtilities.CompactUnityVersion24,AssetRipper.VersionUtilities.CompactUnityVersion24)">
+            <summary>
+            Greater than or equal to
+            </summary>
+            <param name="left">The left Unity version</param>
+            <param name="right">The right Unity version</param>
+            <returns></returns>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.CompactUnityVersion24.op_LessThan(AssetRipper.VersionUtilities.CompactUnityVersion24,AssetRipper.VersionUtilities.CompactUnityVersion24)">
+            <summary>
+            Less than
+            </summary>
+            <param name="left">The left Unity version</param>
+            <param name="right">The right Unity version</param>
+            <returns></returns>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.CompactUnityVersion24.op_LessThanOrEqual(AssetRipper.VersionUtilities.CompactUnityVersion24,AssetRipper.VersionUtilities.CompactUnityVersion24)">
+            <summary>
+            Less than or equal to
+            </summary>
+            <param name="left">The left Unity version</param>
+            <param name="right">The right Unity version</param>
+            <returns></returns>
+        </member>
+        <member name="T:AssetRipper.VersionUtilities.CompactUnityVersion32">
+            <summary>
+            A compact value type for efficiently storing Unity versions inside 32 bits
+            </summary>
+        </member>
+        <member name="F:AssetRipper.VersionUtilities.CompactUnityVersion32.MajorMaxValue">
+            <summary>
+            2266
+            </summary>
+        </member>
+        <member name="P:AssetRipper.VersionUtilities.CompactUnityVersion32.MajorRaw">
+            <summary>
+            8 bits
+            </summary>
+        </member>
+        <member name="P:AssetRipper.VersionUtilities.CompactUnityVersion32.Major">
+            <summary>
+            The first number in a Unity version string. 8 bits.
+            Valid values inclusive: 0 - 5, 2017 - 2266
+            </summary>
+        </member>
+        <member name="P:AssetRipper.VersionUtilities.CompactUnityVersion32.Minor">
+            <summary>
+            The second number in a Unity version string. 4 bits
+            </summary>
+        </member>
+        <member name="P:AssetRipper.VersionUtilities.CompactUnityVersion32.Build">
+            <summary>
+            The third number in a Unity version string. 8 bits
+            </summary>
+        </member>
+        <member name="P:AssetRipper.VersionUtilities.CompactUnityVersion32.Type">
+            <summary>
+            The letter in a Unity version string. 4 bits
+            </summary>
+        </member>
+        <member name="P:AssetRipper.VersionUtilities.CompactUnityVersion32.TypeNumber">
+            <summary>
+            The last number in a Unity version string. 8 bits
+            </summary>
+        </member>
+        <member name="P:AssetRipper.VersionUtilities.CompactUnityVersion32.MinVersion">
+            <summary>
+            The minimum value this type can have
+            </summary>
+        </member>
+        <member name="P:AssetRipper.VersionUtilities.CompactUnityVersion32.MaxVersion">
+            <summary>
+            The maximum value this type can have
+            </summary>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.CompactUnityVersion32.#ctor(System.UInt16)">
+            <summary>
+            Construct a new Unity version
+            </summary>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.CompactUnityVersion32.#ctor(System.UInt16,System.Byte)">
+            <summary>
+            Construct a new Unity version
+            </summary>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.CompactUnityVersion32.#ctor(System.UInt16,System.Byte,System.Byte)">
+            <summary>
+            Construct a new Unity version
+            </summary>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.CompactUnityVersion32.#ctor(System.UInt16,System.Byte,System.Byte,AssetRipper.VersionUtilities.UnityVersionType)">
+            <summary>
+            Construct a new Unity version
+            </summary>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.CompactUnityVersion32.#ctor(System.UInt16,System.Byte,System.Byte,AssetRipper.VersionUtilities.UnityVersionType,System.Byte)">
+            <summary>
+            Construct a new Unity version
+            </summary>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.CompactUnityVersion32.GetBits">
+            <summary>
+            Converts this to its binary representation
+            </summary>
+            <returns>An unsigned integer having the same bits as this</returns>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.CompactUnityVersion32.FromBits(System.UInt32)">
+            <summary>
+            Converts a binary representation into its respective version
+            </summary>
+            <param name="bits">An unsigned integer having the relevant bits</param>
+            <returns>A new Unity version with the cooresponding bits</returns>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.CompactUnityVersion32.ToString">
+            <summary>
+            Serialize the version as a string
+            </summary>
+            <returns>A new string like 2019.4.3f1</returns>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.CompactUnityVersion32.CompareTo(System.Object)">
+            <summary>
+            Compare to another object
+            </summary>
+            <param name="obj">Another object</param>
+            <returns>
+            1 if this is larger or the other is not a Unity version<br/>
+            -1 if this is smaller<br/>
+            0 if equal
+            </returns>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.CompactUnityVersion32.CompareTo(AssetRipper.VersionUtilities.CompactUnityVersion32)">
+            <summary>
+            Compare two Unity versions
+            </summary>
+            <param name="other">Another Unity version</param>
+            <returns>
+            1 if this is larger<br/>
+            -1 if this is smaller<br/>
+            0 if equal
+            </returns>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.CompactUnityVersion32.Equals(System.Object)">
+            <summary>
+            Check equality with another object
+            </summary>
+            <param name="obj">Another object</param>
+            <returns>True if they're equal; false otherwise</returns>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.CompactUnityVersion32.Equals(AssetRipper.VersionUtilities.CompactUnityVersion32)">
+            <summary>
+            Check equality with another Unity version
+            </summary>
+            <param name="other">Another Unity version</param>
+            <returns>True if they're equal; false otherwise</returns>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.CompactUnityVersion32.GetHashCode">
+            <inheritdoc/>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.CompactUnityVersion32.op_Implicit(AssetRipper.VersionUtilities.CompactUnityVersion32)~AssetRipper.VersionUtilities.UnityVersion">
+            <summary>
+            Expand to 64 bits
+            </summary>
+            <param name="version">The version to convert</param>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.CompactUnityVersion32.op_Explicit(AssetRipper.VersionUtilities.UnityVersion)~AssetRipper.VersionUtilities.CompactUnityVersion32">
+            <summary>
+            Compact to 32 bits
+            </summary>
+            <param name="version"></param>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.CompactUnityVersion32.op_Equality(AssetRipper.VersionUtilities.CompactUnityVersion32,AssetRipper.VersionUtilities.CompactUnityVersion32)">
+            <summary>
+            Equality operator
+            </summary>
+            <param name="left">The left Unity version</param>
+            <param name="right">The right Unity version</param>
+            <returns></returns>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.CompactUnityVersion32.op_Inequality(AssetRipper.VersionUtilities.CompactUnityVersion32,AssetRipper.VersionUtilities.CompactUnityVersion32)">
+            <summary>
+            Inequality operator
+            </summary>
+            <param name="left">The left Unity version</param>
+            <param name="right">The right Unity version</param>
+            <returns></returns>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.CompactUnityVersion32.op_GreaterThan(AssetRipper.VersionUtilities.CompactUnityVersion32,AssetRipper.VersionUtilities.CompactUnityVersion32)">
+            <summary>
+            Greater than
+            </summary>
+            <param name="left">The left Unity version</param>
+            <param name="right">The right Unity version</param>
+            <returns></returns>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.CompactUnityVersion32.op_GreaterThanOrEqual(AssetRipper.VersionUtilities.CompactUnityVersion32,AssetRipper.VersionUtilities.CompactUnityVersion32)">
+            <summary>
+            Greater than or equal to
+            </summary>
+            <param name="left">The left Unity version</param>
+            <param name="right">The right Unity version</param>
+            <returns></returns>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.CompactUnityVersion32.op_LessThan(AssetRipper.VersionUtilities.CompactUnityVersion32,AssetRipper.VersionUtilities.CompactUnityVersion32)">
+            <summary>
+            Less than
+            </summary>
+            <param name="left">The left Unity version</param>
+            <param name="right">The right Unity version</param>
+            <returns></returns>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.CompactUnityVersion32.op_LessThanOrEqual(AssetRipper.VersionUtilities.CompactUnityVersion32,AssetRipper.VersionUtilities.CompactUnityVersion32)">
+            <summary>
+            Less than or equal to
+            </summary>
+            <param name="left">The left Unity version</param>
+            <param name="right">The right Unity version</param>
+            <returns></returns>
+        </member>
+        <member name="T:AssetRipper.VersionUtilities.Extensions.BinaryReaderExtensions">
+            <summary>
+            Unity version extension methods for <see cref="T:System.IO.BinaryReader"/>
+            </summary>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.Extensions.BinaryReaderExtensions.ReadUnityVersion(System.IO.BinaryReader)">
+            <summary>
+            Reads a Unity version from the stream
+            </summary>
+            <param name="reader">A binary reader</param>
+            <returns>The read Unity version</returns>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.Extensions.BinaryReaderExtensions.ReadCompactUnityVersion32(System.IO.BinaryReader)">
+            <summary>
+            Reads a Unity version from the stream
+            </summary>
+            <param name="reader">A binary reader</param>
+            <returns>The read Unity version</returns>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.Extensions.BinaryReaderExtensions.ReadCompactUnityVersion24(System.IO.BinaryReader)">
+            <summary>
+            Reads a Unity version from the stream
+            </summary>
+            <param name="reader">A binary reader</param>
+            <returns>The read Unity version</returns>
+        </member>
+        <member name="T:AssetRipper.VersionUtilities.Extensions.BinaryWriterExtensions">
+            <summary>
+            Unity version extension methods for <see cref="T:System.IO.BinaryWriter"/>
+            </summary>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.Extensions.BinaryWriterExtensions.Write(System.IO.BinaryWriter,AssetRipper.VersionUtilities.UnityVersion)">
+            <summary>
+            Write a Unity version to the stream
+            </summary>
+            <param name="writer">A binary writer</param>
+            <param name="version">A Unity version</param>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.Extensions.BinaryWriterExtensions.Write(System.IO.BinaryWriter,AssetRipper.VersionUtilities.CompactUnityVersion32)">
+            <summary>
+            Write a Unity version to the stream
+            </summary>
+            <param name="writer">A binary writer</param>
+            <param name="version">A Unity version</param>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.Extensions.BinaryWriterExtensions.Write(System.IO.BinaryWriter,AssetRipper.VersionUtilities.CompactUnityVersion24)">
+            <summary>
+            Write a Unity version to the stream
+            </summary>
+            <param name="writer">A binary writer</param>
+            <param name="version">A Unity version</param>
+        </member>
+        <member name="T:AssetRipper.VersionUtilities.Extensions.CharacterExtensions">
+            <summary>
+            Extensions for <see cref="T:System.Char"/>
+            </summary>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.Extensions.CharacterExtensions.ToUnityVersionType(System.Char)">
+            <summary>
+            Parse a character into a Unity Version Type
+            </summary>
+            <param name="c">The character</param>
+            <returns></returns>
+            <exception cref="T:System.ArgumentException">No version type for character</exception>
+        </member>
+        <member name="T:AssetRipper.VersionUtilities.UnityVersion">
+            <summary>
+            A value type for holding Unity versions
+            </summary>
+        </member>
+        <member name="P:AssetRipper.VersionUtilities.UnityVersion.Major">
+            <summary>
+            The first number in a Unity version string
+            </summary>
+        </member>
+        <member name="P:AssetRipper.VersionUtilities.UnityVersion.Minor">
+            <summary>
+            The second number in a Unity version string
+            </summary>
+        </member>
+        <member name="P:AssetRipper.VersionUtilities.UnityVersion.Build">
+            <summary>
+            The third number in a Unity version string
+            </summary>
+        </member>
+        <member name="P:AssetRipper.VersionUtilities.UnityVersion.Type">
+            <summary>
+            The letter in a Unity version string
+            </summary>
+        </member>
+        <member name="P:AssetRipper.VersionUtilities.UnityVersion.TypeNumber">
+            <summary>
+            The last number in a Unity version string
+            </summary>
+        </member>
+        <member name="P:AssetRipper.VersionUtilities.UnityVersion.MinVersion">
+            <summary>
+            The minimum value this type can have
+            </summary>
+        </member>
+        <member name="P:AssetRipper.VersionUtilities.UnityVersion.MaxVersion">
+            <summary>
+            The maximum value this type can have
+            </summary>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.UnityVersion.#ctor(System.UInt16)">
+            <summary>
+            Construct a new Unity version
+            </summary>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.UnityVersion.#ctor(System.UInt16,System.UInt16)">
+            <summary>
+            Construct a new Unity version
+            </summary>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.UnityVersion.#ctor(System.UInt16,System.UInt16,System.UInt16)">
+            <summary>
+            Construct a new Unity version
+            </summary>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.UnityVersion.#ctor(System.UInt16,System.UInt16,System.UInt16,AssetRipper.VersionUtilities.UnityVersionType)">
+            <summary>
+            Construct a new Unity version
+            </summary>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.UnityVersion.#ctor(System.UInt16,System.UInt16,System.UInt16,AssetRipper.VersionUtilities.UnityVersionType,System.Byte)">
+            <summary>
+            Construct a new Unity version
+            </summary>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.UnityVersion.GetBits">
+            <summary>
+            Converts this to its binary representation
+            </summary>
+            <returns>An unsigned long integer having the same bits as this</returns>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.UnityVersion.FromBits(System.UInt64)">
+            <summary>
+            Converts a binary representation into its respective version
+            </summary>
+            <param name="bits">An unsigned long integer having the relevant bits</param>
+            <returns>A new Unity version with the cooresponding bits</returns>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.UnityVersion.CompareTo(System.Object)">
+            <summary>
+            Compare to another object
+            </summary>
+            <param name="obj">Another object</param>
+            <returns>
+            1 if this is larger or the other is not a Unity version<br/>
+            -1 if this is smaller<br/>
+            0 if equal
+            </returns>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.UnityVersion.CompareTo(AssetRipper.VersionUtilities.UnityVersion)">
+            <summary>
+            Compare two Unity versions
+            </summary>
+            <param name="other">Another Unity version</param>
+            <returns>
+            1 if this is larger<br/>
+            -1 if this is smaller<br/>
+            0 if equal
+            </returns>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.UnityVersion.Equals(System.Object)">
+            <summary>
+            Check equality with another object
+            </summary>
+            <param name="obj">Another object</param>
+            <returns>True if they're equal; false otherwise</returns>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.UnityVersion.Equals(AssetRipper.VersionUtilities.UnityVersion)">
+            <summary>
+            Check equality with another Unity version
+            </summary>
+            <param name="other">Another Unity version</param>
+            <returns>True if they're equal; false otherwise</returns>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.UnityVersion.GetHashCode">
+            <inheritdoc/>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.UnityVersion.Max(AssetRipper.VersionUtilities.UnityVersion,AssetRipper.VersionUtilities.UnityVersion)">
+            <summary>
+            A maximizing function for Unity versions
+            </summary>
+            <param name="left">A Unity version</param>
+            <param name="right">A Unity version</param>
+            <returns>The larger Unity version</returns>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.UnityVersion.Min(AssetRipper.VersionUtilities.UnityVersion,AssetRipper.VersionUtilities.UnityVersion)">
+            <summary>
+            A minimizing function for Unity versions
+            </summary>
+            <param name="left">A Unity version</param>
+            <param name="right">A Unity version</param>
+            <returns>The smaller Unity version</returns>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.UnityVersion.Distance(AssetRipper.VersionUtilities.UnityVersion,AssetRipper.VersionUtilities.UnityVersion)">
+            <summary>
+            A distance function for measuring version proximity
+            </summary>
+            <remarks>
+            The returned value is ordinal and should not be saved anywhere.
+            It's only for runtime comparisons, such as finding the closest version in a list.
+            </remarks>
+            <param name="left">A Unity version</param>
+            <param name="right">A Unity version</param>
+            <returns>
+            An ordinal number representing the distance between 2 versions. 
+            A value of zero means they're equal.
+            </returns>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.UnityVersion.GetClosestVersion(AssetRipper.VersionUtilities.UnityVersion[])">
+            <summary>
+            Get the closest Unity version in an array of versions using <see cref="M:AssetRipper.VersionUtilities.UnityVersion.Distance(AssetRipper.VersionUtilities.UnityVersion,AssetRipper.VersionUtilities.UnityVersion)"/>
+            </summary>
+            <param name="versions">The Unity version array</param>
+            <returns>The closest Unity version</returns>
+            <exception cref="T:System.ArgumentNullException">The array is null</exception>
+            <exception cref="T:System.ArgumentException">The array is empty</exception>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.UnityVersion.op_Equality(AssetRipper.VersionUtilities.UnityVersion,AssetRipper.VersionUtilities.UnityVersion)">
+            <summary>
+            Equality operator
+            </summary>
+            <param name="left">The left Unity version</param>
+            <param name="right">The right Unity version</param>
+            <returns></returns>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.UnityVersion.op_Inequality(AssetRipper.VersionUtilities.UnityVersion,AssetRipper.VersionUtilities.UnityVersion)">
+            <summary>
+            Inequality operator
+            </summary>
+            <param name="left">The left Unity version</param>
+            <param name="right">The right Unity version</param>
+            <returns></returns>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.UnityVersion.op_GreaterThan(AssetRipper.VersionUtilities.UnityVersion,AssetRipper.VersionUtilities.UnityVersion)">
+            <summary>
+            Greater than
+            </summary>
+            <param name="left">The left Unity version</param>
+            <param name="right">The right Unity version</param>
+            <returns></returns>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.UnityVersion.op_GreaterThanOrEqual(AssetRipper.VersionUtilities.UnityVersion,AssetRipper.VersionUtilities.UnityVersion)">
+            <summary>
+            Greater than or equal to
+            </summary>
+            <param name="left">The left Unity version</param>
+            <param name="right">The right Unity version</param>
+            <returns></returns>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.UnityVersion.op_LessThan(AssetRipper.VersionUtilities.UnityVersion,AssetRipper.VersionUtilities.UnityVersion)">
+            <summary>
+            Less than
+            </summary>
+            <param name="left">The left Unity version</param>
+            <param name="right">The right Unity version</param>
+            <returns></returns>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.UnityVersion.op_LessThanOrEqual(AssetRipper.VersionUtilities.UnityVersion,AssetRipper.VersionUtilities.UnityVersion)">
+            <summary>
+            Less than or equal to
+            </summary>
+            <param name="left">The left Unity version</param>
+            <param name="right">The right Unity version</param>
+            <returns></returns>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.UnityVersion.ToString">
+            <summary>
+            Serialize the version as a string
+            </summary>
+            <returns>A new string like 2019.4.3f1</returns>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.UnityVersion.ToString(System.Boolean,System.Boolean,System.Boolean)">
+            <summary>
+            Serialize the version as a string
+            </summary>
+            <param name="hasUnderscorePrefix">Include the _ prefix</param>
+            <param name="useUnderscores">Use underscores as separators instead of periods</param>
+            <param name="hasExtension">Include the .dll extension</param>
+            <returns>A new string generated with those parameters</returns>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.UnityVersion.ToStringWithoutType">
+            <summary>
+            Serialize the version as a string
+            </summary>
+            <returns>A new string like 2019.4.3</returns>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.UnityVersion.ParseFromDllName(System.String)">
+            <summary>
+            Parse a dll name like _2019_4_3f1.dll
+            </summary>
+            <param name="dllName">The name of a dll file</param>
+            <returns>The parsed Unity version</returns>
+            <exception cref="T:System.ArgumentNullException">If the string is null or empty</exception>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.UnityVersion.Parse(System.String)">
+            <summary>
+            Parse a normal Unity version string
+            </summary>
+            <param name="version">A string to parse</param>
+            <returns>The parsed Unity version</returns>
+            <exception cref="T:System.ArgumentNullException">If the string is null or empty</exception>
+            <exception cref="T:System.ArgumentException">If the string is in an invalid format</exception>
+        </member>
+        <member name="T:AssetRipper.VersionUtilities.UnityVersionType">
+            <summary>
+            An enumeration representing the letter in a Unity Version string
+            </summary>
+        </member>
+        <member name="F:AssetRipper.VersionUtilities.UnityVersionType.Alpha">
+            <summary>
+            a
+            </summary>
+        </member>
+        <member name="F:AssetRipper.VersionUtilities.UnityVersionType.Beta">
+            <summary>
+            b
+            </summary>
+        </member>
+        <member name="F:AssetRipper.VersionUtilities.UnityVersionType.China">
+            <summary>
+            c
+            </summary>
+        </member>
+        <member name="F:AssetRipper.VersionUtilities.UnityVersionType.Final">
+            <summary>
+            f
+            </summary>
+        </member>
+        <member name="F:AssetRipper.VersionUtilities.UnityVersionType.Patch">
+            <summary>
+            p
+            </summary>
+        </member>
+        <member name="F:AssetRipper.VersionUtilities.UnityVersionType.Experimental">
+            <summary>
+            x
+            </summary>
+        </member>
+        <member name="F:AssetRipper.VersionUtilities.UnityVersionType.MinValue">
+            <summary>
+            The minimum valid value for this enumeration
+            </summary>
+        </member>
+        <member name="F:AssetRipper.VersionUtilities.UnityVersionType.MaxValue">
+            <summary>
+            The maximum valid value for this enumeration
+            </summary>
+        </member>
+        <member name="T:AssetRipper.VersionUtilities.UnityVersionTypeExtentions">
+            <summary>
+            Extension methods for <see cref="T:AssetRipper.VersionUtilities.UnityVersionType"/>
+            </summary>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.UnityVersionTypeExtentions.ToLiteral(AssetRipper.VersionUtilities.UnityVersionType)">
+            <summary>
+            Convert to the relevant character
+            </summary>
+            <param name="_this">A Unity version type</param>
+            <returns>The character this value represents</returns>
+            <exception cref="T:System.ArgumentOutOfRangeException">The type is not a valid value</exception>
+        </member>
+        <member name="M:AssetRipper.VersionUtilities.UnityVersionTypeExtentions.ToCharacter(AssetRipper.VersionUtilities.UnityVersionType)">
+            <summary>
+            Convert to the relevant character
+            </summary>
+            <param name="type">A Unity version type</param>
+            <returns>The character this value represents</returns>
+            <exception cref="T:System.ArgumentOutOfRangeException">The type is not a valid value</exception>
+        </member>
+    </members>
+</doc>
