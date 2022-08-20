@@ -25,7 +25,7 @@ namespace TinyResort {
         public static TRPlugin Plugin;
         public const string pluginGuid = "tinyresort.dinkum.craftFromStorage";
         public const string pluginName = "Craft From Storage";
-        public const string pluginVersion = "0.8.0";
+        public const string pluginVersion = "0.8.2";
 
         public delegate void ParsingEvent();
         public static ParsingEvent OnFinishedParsing;
@@ -136,7 +136,7 @@ namespace TinyResort {
         }
 
         public static bool pressCraftButtonPrefix(CraftingManager __instance, int ___currentVariation) {
-            if (modDisabled) return true;
+            if (modDisabled || findingNearbyChests) return true;
 
             // For checking if something was changed about the recipe items after opening recipe
             var wasCraftable = __instance.CraftButton.GetComponent<Image>().color == UIAnimationManager.manage.yesColor;
