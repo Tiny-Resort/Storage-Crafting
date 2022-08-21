@@ -42,9 +42,14 @@ namespace TinyResort {
 
         public static bool clientInServer;
         private static bool openingCraftMenu;
+        private static bool CraftMenuIsOpen;
         private static bool tryingCraftItem;
         private static bool runCraftItemPostfix;
         private static bool findingNearbyChests;
+        private static bool openChestWindow;
+
+        public static bool ClientInsideHouse => NetworkMapSharer.share.localChar.myInteract.insidePlayerHouse && clientInServer;
+        public static bool ClientOutsideHouse => !NetworkMapSharer.share.localChar.myInteract.insidePlayerHouse && clientInServer;
 
         public static bool modDisabled => RealWorldTimeLight.time.underGround;
 
@@ -81,7 +86,9 @@ namespace TinyResort {
         }
 
         // Clients in a multiplayer world should not be able to craft from storage
-        [HarmonyPrefix] public static void updateRWTLPrefix(RealWorldTimeLight __instance) { clientInServer = !__instance.isServer; }
+        [HarmonyPrefix] public static void updateRWTLPrefix(RealWorldTimeLight __instance) {
+            clientInServer = !__instance.isServer;
+        }
 
         public static bool craftItemPrefix(CraftingManager __instance, int currentlyCrafting, int ___currentVariation) {
             if (modDisabled) return true;
@@ -136,7 +143,7 @@ namespace TinyResort {
         }
 
         public static bool pressCraftButtonPrefix(CraftingManager __instance, int ___currentVariation) {
-            if (modDisabled || findingNearbyChests) return true;
+            if (modDisabled) return true;
 
             // For checking if something was changed about the recipe items after opening recipe
             var wasCraftable = __instance.CraftButton.GetComponent<Image>().color == UIAnimationManager.manage.yesColor;
@@ -195,6 +202,10 @@ namespace TinyResort {
 
             __result = result;
             return false;
+        }
+
+        public void Update() {
+            openChestWindow = !CraftMenuIsOpen;
         }
 
         public static bool takeItemsForRecipePatch(CraftingManager __instance, int currentlyCrafting, int ___currentVariation) {
@@ -266,7 +277,12 @@ namespace TinyResort {
             Inventory.inv.invSlots[slotID].updateSlotContentsAndRefresh(amountRemaining == 0 ? -1 : itemID, amountRemaining);
         }
 
-        [HarmonyPrefix] public static void openCloseCraftMenuPrefix(bool isMenuOpen) { if (isMenuOpen) openingCraftMenu = true; }
+        [HarmonyPrefix] public static void openCloseCraftMenuPrefix(bool isMenuOpen) {
+            CraftMenuIsOpen = isMenuOpen;
+            if (isMenuOpen) {
+                openingCraftMenu = true;
+            } 
+        }
 
         [HarmonyPrefix]
         public static bool populateCraftListPrefix(CraftingManager __instance, CraftingManager.CraftingMenuType listType) {
@@ -294,7 +310,10 @@ namespace TinyResort {
         }
 
         // Stops the chest popup window from opening when we're just checking what items are inside them
-        public static bool openChestInWindowPrefix() { return !findingNearbyChests; }
+        public static bool openChestInWindowPrefix() {
+            if (!openChestWindow || findingNearbyChests) { return false; }
+            return true;
+        }
         //public static bool playerOpenedChestPrefix() { return !findingNearbyChests; }
 
         [HarmonyPrefix]
@@ -314,27 +333,41 @@ namespace TinyResort {
             }
 
             playerPosition = NetworkMapSharer.share.localChar.myInteract.transform.position;
+            // public static bool InsideHouse => NetworkMapSharer.share.localChar.myInteract.insidePlayerHouse && clientInServer;
             
-            // Gets chests inside houses
-            Collider[] chestsInsideHouse = Physics.OverlapBox(new Vector3(playerPosition.x, -88, playerPosition.z), new Vector3(tileRadius.Value * 2, 5, tileRadius.Value * 2), Quaternion.identity, LayerMask.GetMask(LayerMask.LayerToName(15)));
-            for (var i = 0; i < chestsInsideHouse.Length; i++) {
-                ChestPlaceable chestComponent = chestsInsideHouse[i].GetComponentInParent<ChestPlaceable>();
-                if (chestComponent == null) continue; 
-                //Plugin.LogToConsole("FOUND INSIDE HOUSE?: " + chestsInsideHouse[i].transform.position);
-                //Plugin.LogToConsole("COLLLIDER INFO: " + chestsInsideHouse[i].GetComponentInChildren<Collider>().bounds);
-                chests.Add((chestComponent, true)); 
+            /*
+             * The current way we have chests set up to gather data uses the player's position
+             * to check if the chest is inside a house or outside a house. This causes chests to be
+             * deleted outside if the player is inside and vice versa. It is now only enabled
+             * for clients in the area they are currently in and not everywhere. The host can
+             * use the mod as they normally would though. 
+             */
+            
+            // Gets chests inside houses iff not a client or the client is already inside the house
+            if (ClientInsideHouse || !clientInServer) {
+                Plugin.LogToConsole($"Checking for chests inside the house");
+                Collider[] chestsInsideHouse = Physics.OverlapBox(new Vector3(playerPosition.x, -88, playerPosition.z), new Vector3(tileRadius.Value * 2, 5, tileRadius.Value * 2), Quaternion.identity, LayerMask.GetMask(LayerMask.LayerToName(15)));
+                for (var i = 0; i < chestsInsideHouse.Length; i++) {
+                    ChestPlaceable chestComponent = chestsInsideHouse[i].GetComponentInParent<ChestPlaceable>();
+                    if (chestComponent == null) continue;
+                    Plugin.LogToConsole("FOUND INSIDE HOUSE?: " + chestsInsideHouse[i].transform.position);
+                    Plugin.LogToConsole("COLLLIDER INFO: " + chestsInsideHouse[i].GetComponentInChildren<Collider>().bounds);
+                    chests.Add((chestComponent, true));
+                }
             }
-            
-            // Gets chests in the overworld
-            Collider[] chestsOutside = Physics.OverlapBox(new Vector3(playerPosition.x, -7, playerPosition.z), new Vector3(tileRadius.Value * 2, 20, tileRadius.Value * 2), Quaternion.identity, LayerMask.GetMask(LayerMask.LayerToName(15)));
-            for (var j = 0; j < chestsOutside.Length; j++) {
-                ChestPlaceable chestComponent = chestsOutside[j].GetComponentInParent<ChestPlaceable>();
-                if (chestComponent == null) continue; 
-                //Plugin.LogToConsole("FOUND OUTSIDE HOUSE?: " + chestsOutside[j].transform.position);
-                //Plugin.LogToConsole("COLLLIDER INFO: " + chestsOutside[j].GetComponentInChildren<Collider>().bounds);
-                chests.Add((chestComponent, false)); 
+
+            // Gets chests in the overworld iff not a client or client is outside the house
+            if (ClientOutsideHouse || !clientInServer) {
+                Plugin.LogToConsole($"Checking for chests outside the house");
+                Collider[] chestsOutside = Physics.OverlapBox(new Vector3(playerPosition.x, -7, playerPosition.z), new Vector3(tileRadius.Value * 2, 20, tileRadius.Value * 2), Quaternion.identity, LayerMask.GetMask(LayerMask.LayerToName(15)));
+                for (var j = 0; j < chestsOutside.Length; j++) {
+                    ChestPlaceable chestComponent = chestsOutside[j].GetComponentInParent<ChestPlaceable>();
+                    if (chestComponent == null) continue;
+                    Plugin.LogToConsole("FOUND OUTSIDE HOUSE?: " + chestsOutside[j].transform.position);
+                    Plugin.LogToConsole("COLLLIDER INFO: " + chestsOutside[j].GetComponentInChildren<Collider>().bounds);
+                    chests.Add((chestComponent, false));
+                }
             }
-            
             for (var k = 0; k < chests.Count; k++) {
                 
                 // Gets the chest's tile position
