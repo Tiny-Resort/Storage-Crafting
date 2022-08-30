@@ -73,7 +73,7 @@ namespace TinyResort {
             Plugin.QuickPatch(typeof(CraftingManager), "showRecipeForItem", typeof(CraftFromStorage), "showRecipeForItemPrefix");
             Plugin.QuickPatch(typeof(CraftingManager), "closeCraftPopup", typeof(CraftFromStorage), "closeCraftPopupPrefix");
             Plugin.QuickPatch(typeof(CraftingManager), "openCloseCraftMenu", typeof(CraftFromStorage), "openCloseCraftMenuPrefix");
-            Plugin.QuickPatch(typeof(CraftingManager), "canBeCrafted", typeof(CraftFromStorage), "canBeCraftedPatch");
+            //Plugin.QuickPatch(typeof(CraftingManager), "canBeCrafted", typeof(CraftFromStorage), "canBeCraftedPatch");
             Plugin.QuickPatch(typeof(CraftingManager), "craftItem", typeof(CraftFromStorage), "craftItemPrefix", "craftItemPostfix");
             Plugin.QuickPatch(typeof(RealWorldTimeLight), "Update", typeof(CraftFromStorage), "updateRWTLPrefix");
             Plugin.QuickPatch(typeof(ChestWindow), "openChestInWindow", typeof(CraftFromStorage), "openChestInWindowPrefix");
@@ -82,7 +82,10 @@ namespace TinyResort {
             //Plugin.QuickPatch(typeof(ShowObjectOnStatusChange), "showGameObject", typeof(CraftFromStorage), "showGameObjectPrefix");
             Plugin.QuickPatch(typeof(SoundManager), "playASoundAtPoint", typeof(CraftFromStorage), "playASoundAtPointPrefix");
 
-            #endregion  
+            #endregion
+
+            Harmony harmony = new Harmony(pluginGuid);
+            harmony.PatchAll();
         }
 
         // Clients in a multiplayer world should not be able to craft from storage
@@ -181,7 +184,7 @@ namespace TinyResort {
 
         }
 
-        public static bool canBeCraftedPatch(CraftingManager __instance, int itemId, int ___currentVariation, ref bool __result) {
+        /*public static bool canBeCraftedPatch(CraftingManager __instance, int itemId, int ___currentVariation, ref bool __result) {
             if (modDisabled) return true;
 
             bool result = true;
@@ -202,7 +205,7 @@ namespace TinyResort {
 
             __result = result;
             return false;
-        }
+        }*/
 
         public void Update() {
             openChestWindow = !CraftMenuIsOpen;
@@ -350,8 +353,8 @@ namespace TinyResort {
                 for (var i = 0; i < chestsInsideHouse.Length; i++) {
                     ChestPlaceable chestComponent = chestsInsideHouse[i].GetComponentInParent<ChestPlaceable>();
                     if (chestComponent == null) continue;
-                    Plugin.LogToConsole("FOUND INSIDE HOUSE?: " + chestsInsideHouse[i].transform.position);
-                    Plugin.LogToConsole("COLLLIDER INFO: " + chestsInsideHouse[i].GetComponentInChildren<Collider>().bounds);
+                  //  Plugin.LogToConsole("FOUND INSIDE HOUSE?: " + chestsInsideHouse[i].transform.position);
+                   // Plugin.LogToConsole("COLLLIDER INFO: " + chestsInsideHouse[i].GetComponentInChildren<Collider>().bounds);
                     chests.Add((chestComponent, true));
                 }
             }
@@ -363,8 +366,8 @@ namespace TinyResort {
                 for (var j = 0; j < chestsOutside.Length; j++) {
                     ChestPlaceable chestComponent = chestsOutside[j].GetComponentInParent<ChestPlaceable>();
                     if (chestComponent == null) continue;
-                    Plugin.LogToConsole("FOUND OUTSIDE HOUSE?: " + chestsOutside[j].transform.position);
-                    Plugin.LogToConsole("COLLLIDER INFO: " + chestsOutside[j].GetComponentInChildren<Collider>().bounds);
+                    //Plugin.LogToConsole("FOUND OUTSIDE HOUSE?: " + chestsOutside[j].transform.position);
+                    //Plugin.LogToConsole("COLLLIDER INFO: " + chestsOutside[j].GetComponentInChildren<Collider>().bounds);
                     chests.Add((chestComponent, false));
                 }
             }
