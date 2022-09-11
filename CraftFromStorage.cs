@@ -5,6 +5,8 @@ using BepInEx;
 using BepInEx.Configuration;
 using HarmonyLib;
 using I2.Loc;
+using Mirror;
+using Mirror.RemoteCalls;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -21,7 +23,7 @@ namespace TinyResort {
     public class CraftFromStorage : BaseUnityPlugin {
 
         private static CraftFromStorage instance;
-        
+
         public static TRPlugin Plugin;
         public const string pluginGuid = "tinyresort.dinkum.craftFromStorage";
         public const string pluginName = "Craft From Storage";
@@ -29,12 +31,12 @@ namespace TinyResort {
 
         public delegate void ParsingEvent();
         public static ParsingEvent OnFinishedParsing;
-        
+
         public static ConfigEntry<int> tileRadius;
         public static ConfigEntry<bool> usePlayerInvFirst;
-        
+
         public static Vector3 playerPosition;
-        
+
         public static List<(Chest chest, HouseDetails house)> nearbyChests = new List<(Chest chest, HouseDetails house)>();
         private static Dictionary<(int xPos, int yPos), HouseDetails> unconfirmedChests = new Dictionary<(int xPos, int yPos), HouseDetails>();
 
@@ -54,18 +56,21 @@ namespace TinyResort {
         public static bool modDisabled => RealWorldTimeLight.time.underGround;
 
         public static int sequence;
-        
+        public static int numOfUnlockedChests;
+
         private void Awake() {
 
-            Plugin = TRTools.Initialize(this, Logger, 28, pluginGuid, pluginName, pluginVersion);
+            Plugin = TRTools.Initialize(this, 28);
             instance = this;
 
             #region Configuration
+
             tileRadius = Config.Bind<int>("General", "Range", 30, "Increases the range it looks for storage containers by an approximate tile count.");
             usePlayerInvFirst = Config.Bind<bool>("General", "UsePlayerInventoryFirst", true, "Sets whether it pulls items out of player's inventory first (pulls from chests first if false)");
             #endregion
-            
+
             #region Patching
+
             Plugin.QuickPatch(typeof(CraftingManager), "fillRecipeIngredients", typeof(CraftFromStorage), "fillRecipeIngredientsPatch");
             Plugin.QuickPatch(typeof(CraftingManager), "takeItemsForRecipe", typeof(CraftFromStorage), "takeItemsForRecipePatch");
             Plugin.QuickPatch(typeof(CraftingManager), "populateCraftList", typeof(CraftFromStorage), "populateCraftListPrefix");
@@ -77,38 +82,43 @@ namespace TinyResort {
             Plugin.QuickPatch(typeof(CraftingManager), "craftItem", typeof(CraftFromStorage), "craftItemPrefix", "craftItemPostfix");
             Plugin.QuickPatch(typeof(RealWorldTimeLight), "Update", typeof(CraftFromStorage), "updateRWTLPrefix");
             Plugin.QuickPatch(typeof(ChestWindow), "openChestInWindow", typeof(CraftFromStorage), "openChestInWindowPrefix");
+
             //Plugin.QuickPatch(typeof(ContainerManager), "playerOpenedChest", typeof(CraftFromStorage), "playerOpenedChestPrefix");
+            Plugin.QuickPatch(typeof(ContainerManager), "TargetOpenChest", typeof(CraftFromStorage), "TargetOpenChestPrefix");
+
             Plugin.QuickPatch(typeof(ContainerManager), "UserCode_TargetOpenChest", typeof(CraftFromStorage), null, "UserCode_TargetOpenChestPostfix");
+
             //Plugin.QuickPatch(typeof(ShowObjectOnStatusChange), "showGameObject", typeof(CraftFromStorage), "showGameObjectPrefix");
             Plugin.QuickPatch(typeof(SoundManager), "playASoundAtPoint", typeof(CraftFromStorage), "playASoundAtPointPrefix");
 
-            #endregion  
+            #endregion
+
         }
 
         // Clients in a multiplayer world should not be able to craft from storage
-        [HarmonyPrefix] public static void updateRWTLPrefix(RealWorldTimeLight __instance) {
-            clientInServer = !__instance.isServer;
-        }
+        [HarmonyPrefix] public static void updateRWTLPrefix(RealWorldTimeLight __instance) { clientInServer = !__instance.isServer; }
 
         public static bool craftItemPrefix(CraftingManager __instance, int currentlyCrafting, int ___currentVariation) {
             if (modDisabled) return true;
-            
+
             // First time trying to craft an item, stall until we have up to date information
             if (!tryingCraftItem) {
                 tryingCraftItem = true;
                 runCraftItemPostfix = false;
+
                 //ToConsole(++sequence + " STARTING TO CRAFT ITEM");
                 OnFinishedParsing = () => CraftingManager.manage.craftItem(currentlyCrafting);
                 ParseAllItems();
                 return false;
-            } 
-            
+            }
+
             // With up to date information, check if we can still craft it, and if so continue. Otherwise, stop and tell the player.
             else {
                 tryingCraftItem = false;
                 if (!__instance.canBeCrafted(__instance.craftableItemId)) {
                     SoundManager.manage.play2DSound(SoundManager.manage.buttonCantPressSound);
                     TRTools.TopNotification("Craft From Storage", "CANCELED: A required item was removed from storage.");
+
                     //Plugin.LogToConsole(++sequence + " FAILED TO CRAFT ITEM");
                     runCraftItemPostfix = false;
                     __instance.showRecipeForItem(currentlyCrafting, ___currentVariation, false);
@@ -117,7 +127,7 @@ namespace TinyResort {
                 runCraftItemPostfix = true;
                 return true;
             }
-            
+
         }
 
         // This will update the screen immediately after crafting an item. 
@@ -125,15 +135,14 @@ namespace TinyResort {
         public static void craftItemPostfix(CraftingManager __instance, int currentlyCrafting, int ___currentVariation) {
             if (modDisabled || !runCraftItemPostfix) return;
             runCraftItemPostfix = false;
+
             //Plugin.LogToConsole(++sequence + " CRAFT ITEM POSTFIX RUNNING");
             __instance.showRecipeForItem(currentlyCrafting, ___currentVariation, false);
         }
 
         public static bool showGameObjectPrefix(ShowObjectOnStatusChange __instance, int xPos, int yPos, HouseDetails inside = null) { return !__instance.isChest || !findingNearbyChests; }
 
-        public static bool playASoundAtPointPrefix(SoundManager __instance, ASound soundToPlay) {
-            return !((soundToPlay.name == "S_CrateOpens" || soundToPlay.name == "S_CrateClose" || soundToPlay.name == "S_CloseChest" || soundToPlay.name == "S_OpenChest") && findingNearbyChests);
-        }
+        public static bool playASoundAtPointPrefix(SoundManager __instance, ASound soundToPlay) { return !((soundToPlay.name == "S_CrateOpens" || soundToPlay.name == "S_CrateClose" || soundToPlay.name == "S_CloseChest" || soundToPlay.name == "S_OpenChest") && findingNearbyChests); }
 
         public static void showRecipeForItemPrefix(int recipeNo, int recipeVariation = -1, bool moveToAvaliableRecipe = true) {
             if (moveToAvaliableRecipe) {
@@ -165,9 +174,7 @@ namespace TinyResort {
                 SoundManager.manage.play2DSound(SoundManager.manage.pocketsFull);
                 NotificationManager.manage.createChatNotification((LocalizedString)"ToolTips/Tip_PocketsFull", specialTip: true);
             }
-            else {
-                __instance.StartCoroutine(__instance.startCrafting(__instance.craftableItemId));
-            }
+            else { __instance.StartCoroutine(__instance.startCrafting(__instance.craftableItemId)); }
             return false;
         }
 
@@ -175,6 +182,7 @@ namespace TinyResort {
         public static void closeCraftPopupPrefix(CraftingManager __instance, CraftingManager.CraftingMenuType ___menuTypeOpen) {
             if (modDisabled) return;
             if (!__instance.craftWindowPopup.activeInHierarchy) return;
+
             //Plugin.LogToConsole(++sequence + " CLOSING CRAFT POPUP");
             OnFinishedParsing = () => __instance.updateCanBeCraftedOnAllRecipeButtons();
             ParseAllItems();
@@ -204,9 +212,7 @@ namespace TinyResort {
             return false;
         }
 
-        public void Update() {
-            openChestWindow = !CraftMenuIsOpen;
-        }
+        public void Update() { openChestWindow = !CraftMenuIsOpen; }
 
         public static bool takeItemsForRecipePatch(CraftingManager __instance, int currentlyCrafting, int ___currentVariation) {
             if (modDisabled) return true;
@@ -241,8 +247,8 @@ namespace TinyResort {
                                 removed >= info.sources[d].quantity ? -1 : invItemId,
                                 info.sources[d].quantity - removed
                             );
-                        } 
-                        
+                        }
+
                         // Remove from chest inventory as host (or in single player)
                         else {
                             ContainerManager.manage.changeSlotInChest(
@@ -254,18 +260,18 @@ namespace TinyResort {
                                 info.sources[d].inPlayerHouse
                             );
                         }
-                        
+
                     }
 
                     // Remove from existing list of items as well
                     info.sources[d].quantity -= removed;
                     info.quantity -= removed;
-                    
+
                     amountToRemove -= removed;
                     if (amountToRemove <= 0) break;
-                    
+
                 }
-                
+
             }
 
             return false;
@@ -279,9 +285,7 @@ namespace TinyResort {
 
         [HarmonyPrefix] public static void openCloseCraftMenuPrefix(bool isMenuOpen) {
             CraftMenuIsOpen = isMenuOpen;
-            if (isMenuOpen) {
-                openingCraftMenu = true;
-            } 
+            if (isMenuOpen) { openingCraftMenu = true; }
         }
 
         [HarmonyPrefix]
@@ -314,15 +318,14 @@ namespace TinyResort {
             if (!openChestWindow || findingNearbyChests) { return false; }
             return true;
         }
+
         //public static bool playerOpenedChestPrefix() { return !findingNearbyChests; }
 
         [HarmonyPrefix]
-        public static bool UserCode_RpcGiveOnTileStatusPrefix(ref int give, int xPos, int yPos) {
-            return !(findingNearbyChests);
-        } 
+        public static bool UserCode_RpcGiveOnTileStatusPrefix(ref int give, int xPos, int yPos) { return !(findingNearbyChests); }
 
         public static void FindNearbyChests() {
-
+            numOfUnlockedChests = 0;
             var chests = new List<(ChestPlaceable chest, bool insideHouse)>();
             nearbyChests.Clear();
 
@@ -333,8 +336,9 @@ namespace TinyResort {
             }
 
             playerPosition = NetworkMapSharer.share.localChar.myInteract.transform.position;
+
             // public static bool InsideHouse => NetworkMapSharer.share.localChar.myInteract.insidePlayerHouse && clientInServer;
-            
+
             /*
              * The current way we have chests set up to gather data uses the player's position
              * to check if the chest is inside a house or outside a house. This causes chests to be
@@ -342,38 +346,43 @@ namespace TinyResort {
              * for clients in the area they are currently in and not everywhere. The host can
              * use the mod as they normally would though. 
              */
-            
+
             // Gets chests inside houses iff not a client or the client is already inside the house
             if (ClientInsideHouse || !clientInServer) {
-                Plugin.LogToConsole($"Checking for chests inside the house");
+                //Plugin.LogToConsole($"Checking for chests inside the house");
                 Collider[] chestsInsideHouse = Physics.OverlapBox(new Vector3(playerPosition.x, -88, playerPosition.z), new Vector3(tileRadius.Value * 2, 5, tileRadius.Value * 2), Quaternion.identity, LayerMask.GetMask(LayerMask.LayerToName(15)));
                 for (var i = 0; i < chestsInsideHouse.Length; i++) {
                     ChestPlaceable chestComponent = chestsInsideHouse[i].GetComponentInParent<ChestPlaceable>();
                     if (chestComponent == null) continue;
-                    Plugin.LogToConsole("FOUND INSIDE HOUSE?: " + chestsInsideHouse[i].transform.position);
-                    Plugin.LogToConsole("COLLLIDER INFO: " + chestsInsideHouse[i].GetComponentInChildren<Collider>().bounds);
+
+                    //Plugin.LogToConsole("FOUND INSIDE HOUSE?: " + chestsInsideHouse[i].transform.position);
+                    //Plugin.LogToConsole("COLLLIDER INFO: " + chestsInsideHouse[i].GetComponentInChildren<Collider>().bounds);
                     chests.Add((chestComponent, true));
                 }
             }
 
             // Gets chests in the overworld iff not a client or client is outside the house
             if (ClientOutsideHouse || !clientInServer) {
-                Plugin.LogToConsole($"Checking for chests outside the house");
+                //Plugin.LogToConsole($"Checking for chests outside the house");
                 Collider[] chestsOutside = Physics.OverlapBox(new Vector3(playerPosition.x, -7, playerPosition.z), new Vector3(tileRadius.Value * 2, 20, tileRadius.Value * 2), Quaternion.identity, LayerMask.GetMask(LayerMask.LayerToName(15)));
                 for (var j = 0; j < chestsOutside.Length; j++) {
                     ChestPlaceable chestComponent = chestsOutside[j].GetComponentInParent<ChestPlaceable>();
                     if (chestComponent == null) continue;
-                    Plugin.LogToConsole("FOUND OUTSIDE HOUSE?: " + chestsOutside[j].transform.position);
-                    Plugin.LogToConsole("COLLLIDER INFO: " + chestsOutside[j].GetComponentInChildren<Collider>().bounds);
+
+                    //Plugin.LogToConsole("FOUND OUTSIDE HOUSE?: " + chestsOutside[j].transform.position);
+                    //Plugin.LogToConsole("COLLLIDER INFO: " + chestsOutside[j].GetComponentInChildren<Collider>().bounds);
                     chests.Add((chestComponent, false));
                 }
             }
+
             for (var k = 0; k < chests.Count; k++) {
-                
+
                 // Gets the chest's tile position
                 var tempX = chests[k].chest.myXPos();
                 var tempY = chests[k].chest.myYPos();
-    
+
+                Plugin.Log($"{k} - Position: ({chests[k].chest.myXPos()}, {chests[k].chest.myYPos()})");
+
                 // TODO: Currently, this gets the player's house if its inside a house at all
                 // TODO: Make this get the correct house --- I think playerHouse gets the current players house and not the hosts, it works for me, but you didnt see them...
                 HouseDetails house = chests[k].insideHouse ? playerHouse : null;
@@ -386,31 +395,39 @@ namespace TinyResort {
                     NetworkMapSharer.share.localChar.myPickUp.CmdOpenChest(tempX, tempY);
                     NetworkMapSharer.share.localChar.CmdCloseChest(tempX, tempY);
                 }
-                
+
                 // If we're a host or in single player, then we just need to check the chest if its empty cause that auto-creates chests when necessary
                 else {
                     ContainerManager.manage.checkIfEmpty(tempX, tempY, house);
                     AddChest(tempX, tempY, house);
                 }
-                
+
             }
-            
+
         }
 
         private static void AddChest(int xPos, int yPos, HouseDetails house) {
             nearbyChests.Add((ContainerManager.manage.activeChests.First(i => i.xPos == xPos && i.yPos == yPos), house));
             nearbyChests = nearbyChests.Distinct().ToList();
         }
-        
+
         [HarmonyPostfix]
         public static void UserCode_TargetOpenChestPostfix(ContainerManager __instance, int xPos, int yPos, int[] itemIds, int[] itemStack) {
             // TODO: Get proper house details
             if (unconfirmedChests.TryGetValue((xPos, yPos), out var house)) {
+                numOfUnlockedChests += 1;
                 unconfirmedChests.Remove((xPos, yPos));
                 AddChest(xPos, yPos, house);
             }
         }
-        
+
+        [HarmonyPrefix]
+        public static void TargetOpenChestPrefix(NetworkConnection con, int xPos, int yPos, int[] itemIds, int[] itemStack) {
+            Plugin.Log($"TargetOpenChestPrefix: Connection - {con} | ({xPos}, {yPos})");
+            Plugin.Log($"TargetOpenChestPrefix: Connection - {NetworkClient.connection} | ({xPos}, {yPos})");
+
+        }
+
         // Fills a dictionary with info about the items in player inventory and nearby chests
         public static void ParseAllItems() {
             if (!modDisabled) {
@@ -424,7 +441,10 @@ namespace TinyResort {
             // Recreate known chests and clear items
             findingNearbyChests = true;
             FindNearbyChests();
-            if (clientInServer) { yield return new WaitUntil(() => unconfirmedChests.Count <= 0); }
+            if (clientInServer) {
+                yield return new WaitForSeconds(.5f);
+                Plugin.Log($"Probably Locked - CountRemaining: {unconfirmedChests.Count}");
+            } //WaitUntil(() => unconfirmedChests.Count <= 0); }
             nearbyItems.Clear();
 
             // Get all items in player inventory
@@ -441,7 +461,7 @@ namespace TinyResort {
                     AddItem(ChestInfo.chest.itemIds[i], ChestInfo.chest.itemStacks[i], i, TRItems.GetItemDetails(ChestInfo.chest.itemIds[i]).checkIfStackable(), ChestInfo.house, ChestInfo.chest);
                 }
             }
-            
+
             findingNearbyChests = false;
             OnFinishedParsing?.Invoke();
             OnFinishedParsing = null;
@@ -467,11 +487,13 @@ namespace TinyResort {
             if (chest == null) {
                 source.playerInventory = true;
                 info.sources.Insert(0, source);
-               // Plugin.LogToConsole($"Player Inventory -- Slot ID: {slotID} | ItemID: {itemID} | Quantity: {source.quantity}");
+
+                // Plugin.LogToConsole($"Player Inventory -- Slot ID: {slotID} | ItemID: {itemID} | Quantity: {source.quantity}");
             }
             else {
                 info.sources.Add(source);
-              //  Plugin.LogToConsole($"Chest Inventory{chest} -- Slot ID: {slotID} | ItemID: {itemID} | Quantity: {source.quantity} | Chest X: {chest.xPos} | Chest Y: {chest.yPos}");
+
+                //  Plugin.LogToConsole($"Chest Inventory{chest} -- Slot ID: {slotID} | ItemID: {itemID} | Quantity: {source.quantity} | Chest X: {chest.xPos} | Chest Y: {chest.yPos}");
             }
             nearbyItems[itemID] = info;
         }
@@ -502,7 +524,7 @@ namespace TinyResort {
             public bool playerInventory;
             public Chest chest;
         }
-            
+        
     }
-    
+
 }

@@ -1,60 +1,28 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{1E849F00-09AF-444A-9BCD-B7938E76082D}</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>TinyResort</RootNamespace>
+    <TargetFramework>net472</TargetFramework>
     <AssemblyName>CraftFromStorage</AssemblyName>
-    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
-    <FileAlignment>512</FileAlignment>
-    <Deterministic>true</Deterministic>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
+    <Description>Craft From Nearby Storage</Description>
+    <Version>0.8.2</Version>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>pdbonly</DebugType>
-    <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
+    <LangVersion>latest</LangVersion>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="CraftFromStorage.cs" />
-    <Compile Include="..\TinyResortTools\Tiny Resort Tools\**">
-      <Link>Tiny Resort Tools\**</Link>
-    </Compile>
+    <PackageReference Include="BepInEx.Analyzers" Version="1.0.8" PrivateAssets="all"/>
+    <PackageReference Include="BepInEx.AutoPlugin" Version="1.0.1" PrivateAssets="all"/>
+    <PackageReference Include="BepInEx.Unity" Version="6.0.0-pre.1"/>
+    <!-- <PackageReference Include="Dinkum.GameLibs" Version="*-r.*"/> -->
+    <PackageReference Include="UnityEngine.Modules" Version="2020.3.17" PrivateAssets="all" IncludeAssets="compile"/>
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="0Harmony">
-      <HintPath>..\DinkumInstallFolder\BepInEx\core\0Harmony.dll</HintPath>
+    <Reference Include="dev.TinyResort.TRTools">
+      <HintPath>..\DinkumInstallFolder\BepInEx\plugins\dev.TinyResort.TRTools.dll</HintPath>
     </Reference>
     <Reference Include="Assembly-CSharp_publicized">
       <HintPath>..\DinkumInstallFolder\Dinkum_Data\Managed\publicized_assemblies\Assembly-CSharp_publicized.dll</HintPath>
     </Reference>
-<!--    <Reference Include="Assembly-CSharp">
-      <HintPath>..\DinkumInstallFolder\Dinkum_Data\Managed\Assembly-CSharp.dll</HintPath>
-    </Reference>-->
     <Reference Include="Assembly-CSharp-firstpass">
       <HintPath>..\DinkumInstallFolder\Dinkum_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
-    </Reference>
-    <Reference Include="BepInEx.Core">
-      <HintPath>..\DinkumInstallFolder\BepInEx\core\BepInEx.Core.dll</HintPath>
-    </Reference>
-    <Reference Include="BepInEx.Unity">
-      <HintPath>..\DinkumInstallFolder\BepInEx\core\BepInEx.Unity.dll</HintPath>
     </Reference>
     <Reference Include="Coffee.UIParticle">
       <HintPath>..\DinkumInstallFolder\Dinkum_Data\Managed\Coffee.UIParticle.dll</HintPath>
@@ -372,8 +340,10 @@
       <HintPath>..\DinkumInstallFolder\Dinkum_Data\Managed\where-allocations.dll</HintPath>
     </Reference>
   </ItemGroup>
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <ItemGroup Condition="'$(TargetFramework.TrimEnd(`0123456789`))' == 'net'">
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="all"/>
+  </ItemGroup>
   <PropertyGroup>
-    <PostBuildEvent>call "$(SolutionDir)..\PostBuildBat.bat" "$(SolutionDir)bin\Debug\$(TargetName).dll" "$(TargetName)"</PostBuildEvent>
+    <PostBuildEvent>call "$(SolutionDir)..\PostBuildBat.bat" "$(SolutionDir)bin\Debug\net472\$(AssemblyName).dll" "$(AssemblyName)"</PostBuildEvent>
   </PropertyGroup>
 </Project>
