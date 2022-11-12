@@ -18,14 +18,14 @@ using UnityEngine.UI;
 // Known Limitations (NOT PLANNED): Fletch's Tent isn't detected. This is due to Fletch's tent being on a different y-level, so we aren't hitting it with the collider. No plan to implement. 
 
 namespace TinyResort {
-
+    
     [BepInPlugin(pluginGuid, pluginName, pluginVersion)]
-    public class CraftFromStorage : BaseUnityPlugin {
+    public class CraftFromStorage : BaseUnityPlugin { 
 
         private static CraftFromStorage instance;
 
         public static TRPlugin Plugin;
-        public const string pluginGuid = "tinyresort.dinkum.craftFromStorage";
+        public const string pluginGuid = "dev.TinyResort.CraftFromStorage";
         public const string pluginName = "Craft From Storage";
         public const string pluginVersion = "0.8.2";
 
@@ -53,7 +53,7 @@ namespace TinyResort {
         public static bool ClientInsideHouse => NetworkMapSharer.share.localChar.myInteract.insidePlayerHouse && clientInServer;
         public static bool ClientOutsideHouse => !NetworkMapSharer.share.localChar.myInteract.insidePlayerHouse && clientInServer;
 
-        public static bool modDisabled => RealWorldTimeLight.time.underGround;
+        public static bool modDisabled => RealWorldTimeLight.time.underGround; 
 
         public static int sequence;
         public static int numOfUnlockedChests;
@@ -67,7 +67,7 @@ namespace TinyResort {
 
             tileRadius = Config.Bind<int>("General", "Range", 30, "Increases the range it looks for storage containers by an approximate tile count.");
             usePlayerInvFirst = Config.Bind<bool>("General", "UsePlayerInventoryFirst", true, "Sets whether it pulls items out of player's inventory first (pulls from chests first if false)");
-            #endregion
+            #endregion 
 
             #region Patching
 
@@ -93,6 +93,8 @@ namespace TinyResort {
 
             #endregion
 
+            Plugin.AddConflictingPlugin("tinyresort.dinkum.craftFromStorage");
+            
         }
 
         // Clients in a multiplayer world should not be able to craft from storage
@@ -449,7 +451,7 @@ namespace TinyResort {
 
             // Get all items in player inventory
             for (var i = 0; i < Inventory.inv.invSlots.Length; i++) {
-                if (!TRItems.DoesItemExist(Inventory.inv.invSlots[i].itemNo)) continue;
+                if (Inventory.inv.invSlots[i].itemNo == -1 || !TRItems.GetItemDetails(Inventory.inv.invSlots[i].itemNo)) continue;
                 AddItem(Inventory.inv.invSlots[i].itemNo, Inventory.inv.invSlots[i].stack, i, TRItems.GetItemDetails(Inventory.inv.invSlots[i].itemNo).checkIfStackable(), null, null);
             }
 
@@ -457,7 +459,7 @@ namespace TinyResort {
             //Plugin.LogToConsole($"Size of ChestInfo: {nearbyChests.Count}");
             foreach (var ChestInfo in nearbyChests) {
                 for (var i = 0; i < ChestInfo.chest.itemIds.Length; i++) {
-                    if (!TRItems.DoesItemExist(ChestInfo.chest.itemIds[i])) continue;
+                    if (Inventory.inv.invSlots[i].itemNo == -1 || !TRItems.GetItemDetails(ChestInfo.chest.itemIds[i])) continue;
                     AddItem(ChestInfo.chest.itemIds[i], ChestInfo.chest.itemStacks[i], i, TRItems.GetItemDetails(ChestInfo.chest.itemIds[i]).checkIfStackable(), ChestInfo.house, ChestInfo.chest);
                 }
             }
@@ -524,7 +526,7 @@ namespace TinyResort {
             public bool playerInventory;
             public Chest chest;
         }
-        
+
     }
 
 }
