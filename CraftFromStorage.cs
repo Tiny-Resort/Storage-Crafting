@@ -50,8 +50,8 @@ namespace TinyResort {
         private static bool findingNearbyChests;
         private static bool openChestWindow;
 
-        public static bool ClientInsideHouse => NetworkMapSharer.share.localChar.myInteract.insidePlayerHouse && clientInServer;
-        public static bool ClientOutsideHouse => !NetworkMapSharer.share.localChar.myInteract.insidePlayerHouse && clientInServer;
+        public static bool ClientInsideHouse => NetworkMapSharer.Instance.localChar.myInteract._isInsidePlayerHouse && clientInServer;
+        public static bool ClientOutsideHouse => !NetworkMapSharer.Instance.localChar.myInteract._isInsidePlayerHouse && clientInServer;
 
         public static bool modDisabled => RealWorldTimeLight.time.underGround;
 
@@ -116,7 +116,7 @@ namespace TinyResort {
             else {
                 tryingCraftItem = false;
                 if (!__instance.canBeCrafted(__instance.craftableItemId)) {
-                    SoundManager.manage.play2DSound(SoundManager.manage.buttonCantPressSound);
+                    SoundManager.Instance.play2DSound(SoundManager.Instance.buttonCantPressSound);
                     TRTools.TopNotification("Craft From Storage", "CANCELED: A required item was removed from storage.");
 
                     //Plugin.LogToConsole(++sequence + " FAILED TO CRAFT ITEM");
@@ -165,13 +165,13 @@ namespace TinyResort {
 
             // If it can't be crafted, play a sound
             if (!craftable) {
-                SoundManager.manage.play2DSound(SoundManager.manage.buttonCantPressSound);
+                SoundManager.Instance.play2DSound(SoundManager.Instance.buttonCantPressSound);
                 if (wasCraftable) { TRTools.TopNotification("Craft From Storage", "CANCELED: A required item was removed from storage."); }
             }
             else if (showingRecipesFromMenu != CraftingManager.CraftingMenuType.CraftingShop &&
                      showingRecipesFromMenu != CraftingManager.CraftingMenuType.TrapperShop &&
-                     !Inventory.inv.checkIfItemCanFit(__instance.craftableItemId, Inventory.inv.allItems[__instance.craftableItemId].craftable.recipeGiveThisAmount)) {
-                SoundManager.manage.play2DSound(SoundManager.manage.pocketsFull);
+                     !Inventory.Instance.checkIfItemCanFit(__instance.craftableItemId, Inventory.Instance.allItems[__instance.craftableItemId].craftable.recipeGiveThisAmount)) {
+                SoundManager.Instance.play2DSound(SoundManager.Instance.pocketsFull);
                 NotificationManager.manage.createChatNotification((LocalizedString)"ToolTips/Tip_PocketsFull", specialTip: true);
             }
             else { __instance.StartCoroutine(__instance.startCrafting(__instance.craftableItemId)); }
@@ -193,14 +193,14 @@ namespace TinyResort {
             if (modDisabled) return true;
 
             bool result = true;
-            int num = Inventory.inv.allItems[itemId].value * 2;
-            if (CharLevelManager.manage.checkIfUnlocked(__instance.craftableItemId) && Inventory.inv.allItems[itemId].craftable.workPlaceConditions != CraftingManager.CraftingMenuType.TrapperShop) { num = 0; }
-            if (Inventory.inv.wallet < num) { return false; }
+            int num = Inventory.Instance.allItems[itemId].value * 2;
+            if (CharLevelManager.manage.checkIfUnlocked(__instance.craftableItemId) && Inventory.Instance.allItems[itemId].craftable.workPlaceConditions != CraftingManager.CraftingMenuType.TrapperShop) { num = 0; }
+            if (Inventory.Instance.wallet < num) { return false; }
 
-            var recipe = ___currentVariation == -1 || Inventory.inv.allItems[itemId].craftable.altRecipes.Length == 0 ? Inventory.inv.allItems[itemId].craftable : Inventory.inv.allItems[itemId].craftable.altRecipes[___currentVariation];
+            var recipe = ___currentVariation == -1 || Inventory.Instance.allItems[itemId].craftable.altRecipes.Length == 0 ? Inventory.Instance.allItems[itemId].craftable : Inventory.Instance.allItems[itemId].craftable.altRecipes[___currentVariation];
 
             for (int i = 0; i < recipe.itemsInRecipe.Length; i++) {
-                int invItemId = Inventory.inv.getInvItemId(recipe.itemsInRecipe[i]);
+                int invItemId = Inventory.Instance.getInvItemId(recipe.itemsInRecipe[i]);
                 int count = recipe.stackOfItemsInRecipe[i];
                 if (GetItemCount(invItemId) < count) {
                     result = false;
@@ -216,14 +216,14 @@ namespace TinyResort {
 
         public static bool takeItemsForRecipePatch(CraftingManager __instance, int currentlyCrafting, int ___currentVariation) {
             if (modDisabled) return true;
-            var recipe = ___currentVariation == -1 || Inventory.inv.allItems[currentlyCrafting].craftable.altRecipes.Length == 0 ? Inventory.inv.allItems[currentlyCrafting].craftable : Inventory.inv.allItems[currentlyCrafting].craftable.altRecipes[___currentVariation];
+            var recipe = ___currentVariation == -1 || Inventory.Instance.allItems[currentlyCrafting].craftable.altRecipes.Length == 0 ? Inventory.Instance.allItems[currentlyCrafting].craftable : Inventory.Instance.allItems[currentlyCrafting].craftable.altRecipes[___currentVariation];
 
             for (int i = 0; i < HouseManager.manage.allHouses.Count; i++) {
                 if (HouseManager.manage.allHouses[i].isThePlayersHouse) { playerHouse = HouseManager.manage.allHouses[i]; }
             }
 
             for (int i = 0; i < recipe.itemsInRecipe.Length; i++) {
-                int invItemId = Inventory.inv.getInvItemId(recipe.itemsInRecipe[i]);
+                int invItemId = Inventory.Instance.getInvItemId(recipe.itemsInRecipe[i]);
                 int amountToRemove = recipe.stackOfItemsInRecipe[i];
                 var info = GetItem(invItemId);
 
@@ -240,7 +240,7 @@ namespace TinyResort {
 
                         // Remove from chest inventory on server
                         if (clientInServer) {
-                            NetworkMapSharer.share.localChar.myPickUp.CmdChangeOneInChest(
+                            NetworkMapSharer.Instance.localChar.myPickUp.CmdChangeOneInChest(
                                 info.sources[d].chest.xPos,
                                 info.sources[d].chest.yPos,
                                 info.sources[d].slotID,
@@ -279,8 +279,8 @@ namespace TinyResort {
 
         public static void removeFromPlayerInventory(int itemID, int slotID, int amountRemaining) {
             if (modDisabled) return;
-            Inventory.inv.invSlots[slotID].stack = amountRemaining;
-            Inventory.inv.invSlots[slotID].updateSlotContentsAndRefresh(amountRemaining == 0 ? -1 : itemID, amountRemaining);
+            Inventory.Instance.invSlots[slotID].stack = amountRemaining;
+            Inventory.Instance.invSlots[slotID].updateSlotContentsAndRefresh(amountRemaining == 0 ? -1 : itemID, amountRemaining);
         }
 
         [HarmonyPrefix] public static void openCloseCraftMenuPrefix(bool isMenuOpen) {
@@ -300,9 +300,9 @@ namespace TinyResort {
         // We have to override this entirely because we need it to use our item counts, not the count of items in player inventory
         public static bool fillRecipeIngredientsPatch(CraftingManager __instance, int recipeNo, int variation) {
             if (modDisabled) return true;
-            var recipe = variation == -1 || Inventory.inv.allItems[recipeNo].craftable.altRecipes.Length == 0 ? Inventory.inv.allItems[recipeNo].craftable : Inventory.inv.allItems[recipeNo].craftable.altRecipes[variation];
+            var recipe = variation == -1 || Inventory.Instance.allItems[recipeNo].craftable.altRecipes.Length == 0 ? Inventory.Instance.allItems[recipeNo].craftable : Inventory.Instance.allItems[recipeNo].craftable.altRecipes[variation];
             for (int i = 0; i < recipe.itemsInRecipe.Length; i++) {
-                int invItemId = Inventory.inv.getInvItemId(recipe.itemsInRecipe[i]);
+                int invItemId = Inventory.Instance.getInvItemId(recipe.itemsInRecipe[i]);
                 __instance.currentRecipeObjects.Add(Instantiate<GameObject>(__instance.recipeSlot, __instance.RecipeIngredients));
                 __instance.currentRecipeObjects[__instance.currentRecipeObjects.Count - 1]
                           .GetComponent<FillRecipeSlot>()
@@ -335,7 +335,7 @@ namespace TinyResort {
                 if (HouseManager.manage.allHouses[i].isThePlayersHouse) { playerHouse = HouseManager.manage.allHouses[i]; }
             }
 
-            playerPosition = NetworkMapSharer.share.localChar.myInteract.transform.position;
+            playerPosition = NetworkMapSharer.Instance.localChar.myInteract.transform.position;
 
             // public static bool InsideHouse => NetworkMapSharer.share.localChar.myInteract.insidePlayerHouse && clientInServer;
 
@@ -392,8 +392,8 @@ namespace TinyResort {
                 if (clientInServer) {
                     //if (unconfirmedChests.ContainsKey((tempX, tempY))) { Plugin.LogToConsole("CHEST AT " + tempX + ", " + tempY + " already in dictionary"); }
                     unconfirmedChests[(tempX, tempY)] = house;
-                    NetworkMapSharer.share.localChar.myPickUp.CmdOpenChest(tempX, tempY);
-                    NetworkMapSharer.share.localChar.CmdCloseChest(tempX, tempY);
+                    NetworkMapSharer.Instance.localChar.myPickUp.CmdOpenChest(tempX, tempY);
+                    NetworkMapSharer.Instance.localChar.CmdCloseChest(tempX, tempY);
                 }
 
                 // If we're a host or in single player, then we just need to check the chest if its empty cause that auto-creates chests when necessary
@@ -448,16 +448,16 @@ namespace TinyResort {
             nearbyItems.Clear();
 
             // Get all items in player inventory
-            for (var i = 0; i < Inventory.inv.invSlots.Length; i++) {
-                if (!TRItems.DoesItemExist(Inventory.inv.invSlots[i].itemNo)) continue;
-                AddItem(Inventory.inv.invSlots[i].itemNo, Inventory.inv.invSlots[i].stack, i, TRItems.GetItemDetails(Inventory.inv.invSlots[i].itemNo).checkIfStackable(), null, null);
+            for (var i = 0; i < Inventory.Instance.invSlots.Length; i++) {
+                if (!TRItems.GetItemDetails(Inventory.Instance.invSlots[i].itemNo))continue;
+                AddItem(Inventory.Instance.invSlots[i].itemNo, Inventory.Instance.invSlots[i].stack, i, TRItems.GetItemDetails(Inventory.Instance.invSlots[i].itemNo).checkIfStackable(), null, null);
             }
 
             // Get all items in nearby chests
             //Plugin.LogToConsole($"Size of ChestInfo: {nearbyChests.Count}");
             foreach (var ChestInfo in nearbyChests) {
                 for (var i = 0; i < ChestInfo.chest.itemIds.Length; i++) {
-                    if (!TRItems.DoesItemExist(ChestInfo.chest.itemIds[i])) continue;
+                    if (!TRItems.GetItemDetails(ChestInfo.chest.itemIds[i])) continue;
                     AddItem(ChestInfo.chest.itemIds[i], ChestInfo.chest.itemStacks[i], i, TRItems.GetItemDetails(ChestInfo.chest.itemIds[i]).checkIfStackable(), ChestInfo.house, ChestInfo.chest);
                 }
             }

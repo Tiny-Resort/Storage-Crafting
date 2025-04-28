@@ -16,7 +16,7 @@
   </ItemGroup>
   <ItemGroup>
     <Reference Include="dev.TinyResort.TRTools">
-      <HintPath>..\DinkumInstallFolder\BepInEx\plugins\dev.TinyResort.TRTools.dll</HintPath>
+      <HintPath>..\DinkumInstallFolder\BepInEx\plugins\TR Tools\dev.TinyResort.TRTools.dll</HintPath>
     </Reference>
     <Reference Include="Assembly-CSharp_publicized">
       <HintPath>..\DinkumInstallFolder\Dinkum_Data\Managed\publicized_assemblies\Assembly-CSharp_publicized.dll</HintPath>
