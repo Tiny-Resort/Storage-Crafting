@@ -9,7 +9,6 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="BepInEx.Analyzers" Version="1.0.8" PrivateAssets="all"/>
-    <PackageReference Include="BepInEx.AutoPlugin" Version="1.0.1" PrivateAssets="all"/>
     <PackageReference Include="BepInEx.Unity" Version="6.0.0-pre.1"/>
     <!-- <PackageReference Include="Dinkum.GameLibs" Version="*-r.*"/> -->
     <PackageReference Include="UnityEngine.Modules" Version="2020.3.17" PrivateAssets="all" IncludeAssets="compile"/>
@@ -344,6 +343,6 @@
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="all"/>
   </ItemGroup>
   <PropertyGroup>
-    <PostBuildEvent>call "$(SolutionDir)..\PostBuildBat.bat" "$(SolutionDir)bin\Debug\net472\$(AssemblyName).dll" "$(AssemblyName)"</PostBuildEvent>
+    <PostBuildEvent>call "$(SolutionDir)..\PostBuildBat.bat" "$(SolutionDir)bin\Debug\net472\$(AssemblyName).dll" "$(AssemblyName).dll"</PostBuildEvent>
   </PropertyGroup>
 </Project>

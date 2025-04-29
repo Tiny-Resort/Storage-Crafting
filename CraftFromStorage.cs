@@ -6,7 +6,6 @@ using BepInEx.Configuration;
 using HarmonyLib;
 using I2.Loc;
 using Mirror;
-using Mirror.RemoteCalls;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -18,17 +17,13 @@ using UnityEngine.UI;
 // Known Limitations (NOT PLANNED): Fletch's Tent isn't detected. This is due to Fletch's tent being on a different y-level, so we aren't hitting it with the collider. No plan to implement. 
 
 namespace TinyResort {
-
-    [BepInPlugin(pluginGuid, pluginName, pluginVersion)]
+    
+    [BepInPlugin("tinyresort.dinkum.craftFromStorage", "Craft From Storage", "0.8.4")]
     public class CraftFromStorage : BaseUnityPlugin {
 
-        private static CraftFromStorage instance;
+        private static CraftFromStorage _instance;
 
         public static TRPlugin Plugin;
-        public const string pluginGuid = "tinyresort.dinkum.craftFromStorage";
-        public const string pluginName = "Craft From Storage";
-        public const string pluginVersion = "0.8.2";
-
         public delegate void ParsingEvent();
         public static ParsingEvent OnFinishedParsing;
 
@@ -53,7 +48,7 @@ namespace TinyResort {
         public static bool ClientInsideHouse => NetworkMapSharer.Instance.localChar.myInteract._isInsidePlayerHouse && clientInServer;
         public static bool ClientOutsideHouse => !NetworkMapSharer.Instance.localChar.myInteract._isInsidePlayerHouse && clientInServer;
 
-        public static bool modDisabled => RealWorldTimeLight.time.underGround;
+        public static bool modDisabled => RealWorldTimeLight.time.CurrentWorldArea != WorldArea.MAIN_ISLAND;
 
         public static int sequence;
         public static int numOfUnlockedChests;
@@ -61,7 +56,7 @@ namespace TinyResort {
         private void Awake() {
 
             Plugin = TRTools.Initialize(this, 28);
-            instance = this;
+            _instance = this;
 
             #region Configuration
 
@@ -331,8 +326,19 @@ namespace TinyResort {
 
             // Gets the player's house
             // TODO: Make sure this works in multiplayer
-            for (int i = 0; i < HouseManager.manage.allHouses.Count; i++) {
-                if (HouseManager.manage.allHouses[i].isThePlayersHouse) { playerHouse = HouseManager.manage.allHouses[i]; }
+            for (int i = 0; i < HouseManager.manage.allHouses.Count; i++)
+            {
+                var currentHouse = HouseManager.manage.allHouses[i];
+                if (currentHouse != null)
+                {
+                    Plugin.Log($"House Information {i}: \nIs Player's House: {currentHouse.isThePlayersHouse}");
+                    Plugin.Log($"House Information {i}: \nHouse Map On Tile: {currentHouse.houseMapOnTile}");
+                    Plugin.Log($"House Information {i}: \nRented ID: {currentHouse.rentedId}");
+                    Plugin.Log($"House Information {i}: \nX Position: {currentHouse.xPos}");
+                    Plugin.Log($"House Information {i}: \nY Position: {currentHouse.yPos}");
+            
+                    if (currentHouse.isThePlayersHouse) { playerHouse = currentHouse; }
+                }
             }
 
             playerPosition = NetworkMapSharer.Instance.localChar.myInteract.transform.position;
@@ -431,8 +437,8 @@ namespace TinyResort {
         // Fills a dictionary with info about the items in player inventory and nearby chests
         public static void ParseAllItems() {
             if (!modDisabled) {
-                instance.StopAllCoroutines();
-                instance.StartCoroutine(ParseAllItemsRoutine());
+                _instance.StopAllCoroutines();
+                _instance.StartCoroutine(ParseAllItemsRoutine());
             }
         }
 
